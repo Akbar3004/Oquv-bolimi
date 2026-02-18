@@ -8,14 +8,18 @@ export default function AddWorkshopModal({ isOpen, onClose, onSave, initialData 
     const [workshopData, setWorkshopData] = useState({
         number: '',
         masterName: '',
-        func: ''
+        function: ''
     });
 
     useEffect(() => {
         if (isOpen && initialData) {
-            setWorkshopData(initialData);
+            setWorkshopData({
+                number: initialData.number || '',
+                masterName: initialData.masterName || '',
+                function: initialData.function || initialData.func || '' // Handle both cases for safety
+            });
         } else if (isOpen) {
-            setWorkshopData({ number: '', masterName: '', func: '' });
+            setWorkshopData({ number: '', masterName: '', function: '' });
         }
     }, [isOpen, initialData]);
 
@@ -89,9 +93,9 @@ export default function AddWorkshopModal({ isOpen, onClose, onSave, initialData 
                             </label>
                             <input
                                 type="text"
-                                name="func"
+                                name="function"
                                 placeholder="Masalan: Ta'mirlash"
-                                value={workshopData.func}
+                                value={workshopData.function}
                                 onChange={handleChange}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                             />

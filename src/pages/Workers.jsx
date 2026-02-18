@@ -11,6 +11,7 @@ import WorkshopCard from '../components/WorkshopCard';
 import { downloadTemplate, parseEmployees, exportToExcel } from '../utils/excelHandler';
 import AddWorkshopModal from '../components/AddWorkshopModal';
 import AddWorkerModal from '../components/AddWorkerModal';
+import ImportConflictsModal from '../components/ImportConflictsModal';
 
 
 
@@ -41,6 +42,9 @@ export default function Workers() {
     const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
     const [editingWorker, setEditingWorker] = useState(null);
     const [pendingImport, setPendingImport] = useState({ workshops: [], employees: [] });
+    const [importConflicts, setImportConflicts] = useState([]);
+    const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+    const [tempImportData, setTempImportData] = useState([]);
 
 
 
@@ -88,7 +92,7 @@ export default function Workers() {
             setEditingWorkshop(null);
         } else {
             // Create new (Add or Import flow)
-            const { number, masterName, func } = data;
+            const { number, masterName } = data; // function is also in data
 
             const isImportFlow = pendingImport.workshops.length > 0;
 
@@ -102,7 +106,7 @@ export default function Workers() {
                 id: Date.now(),
                 number: isImportFlow ? editingWorkshop.number : number, // Use preset number for import
                 masterName: masterName || "Tayinlanmagan",
-                function: func || "Vazifa belgilanmagan",
+                function: data.function || "Vazifa belgilanmagan",
                 workerCount: 0
             };
 
@@ -182,6 +186,9 @@ export default function Workers() {
         const file = e.target.files[0];
         if (!file) return;
 
+        // Reset file input value to allow re-importing same file if cancelled
+        e.target.value = '';
+
         try {
             const importedEmployees = await parseEmployees(file);
 
@@ -190,32 +197,70 @@ export default function Workers() {
                 return;
             }
 
-            // Identify new workshops
-            const uniqueWorkshopNumbers = [...new Set(importedEmployees.map(e => e.sex))];
-            const existingWorkshopNumbers = workshops.map(w => w.number);
-            const newWorkshopNumbers = uniqueWorkshopNumbers.filter(num => !existingWorkshopNumbers.includes(num));
+            // Check for duplicates (Name + Tabel ID)
+            const duplicates = importedEmployees.filter(imp =>
+                workers.some(w => w.name === imp.name && (String(w.tabelId) === String(imp.tabelId)))
+            );
 
-            let updatedWorkshops = [...workshops];
-
-            // Prompt for new workshops
-            // Prompt for new workshops
-            if (newWorkshopNumbers.length > 0) {
-                // Start the queue
-                setPendingImport({ workshops: newWorkshopNumbers, employees: importedEmployees });
-
-                // Open first modal
-                setEditingWorkshop({ number: newWorkshopNumbers[0], masterName: '', func: '' });
-                setIsAddWorkshopOpen(true);
-                return; // Stop here, wait for user to finish modal flow
+            if (duplicates.length > 0) {
+                setImportConflicts(duplicates);
+                setTempImportData(importedEmployees);
+                setIsConflictModalOpen(true);
+                return;
             }
 
+            // No duplicates, proceed
+            processImportedEmployees(importedEmployees);
 
-            setWorkers([...workers, ...importedEmployees]);
-            alert(`${importedEmployees.length} xodim va ${newWorkshopNumbers.length} yangi seh muvaffaqiyatli qo'shildi!`);
         } catch (error) {
             console.error("Import Error:", error);
             alert("Xatolik yuz berdi: Fayl formatini tekshiring.");
         }
+    };
+
+    const handleResolveConflicts = (resolution) => {
+        setIsConflictModalOpen(false);
+
+        let finalEmployees = [...tempImportData];
+
+        if (resolution === 'skip') {
+            // Filter out duplicates
+            finalEmployees = finalEmployees.filter(imp =>
+                !importConflicts.some(dup => dup.name === imp.name && String(dup.tabelId) === String(dup.tabelId))
+            );
+
+            if (finalEmployees.length === 0) {
+                alert("Barcha xodimlar dublikat bo'lgani uchun yuklanmadi.");
+                setTempImportData([]);
+                setImportConflicts([]);
+                return;
+            }
+        }
+
+        processImportedEmployees(finalEmployees);
+        setTempImportData([]);
+        setImportConflicts([]);
+    };
+
+    const processImportedEmployees = (employeesToImport) => {
+        // Identify new workshops
+        const uniqueWorkshopNumbers = [...new Set(employeesToImport.map(e => e.sex))];
+        const existingWorkshopNumbers = workshops.map(w => w.number);
+        const newWorkshopNumbers = uniqueWorkshopNumbers.filter(num => !existingWorkshopNumbers.includes(num));
+
+        // Prompt for new workshops
+        if (newWorkshopNumbers.length > 0) {
+            // Start the queue
+            setPendingImport({ workshops: newWorkshopNumbers, employees: employeesToImport });
+
+            // Open first modal
+            setEditingWorkshop({ number: newWorkshopNumbers[0], masterName: '', func: '' });
+            setIsAddWorkshopOpen(true);
+            return; // Stop here, wait for user to finish modal flow
+        }
+
+        setWorkers(prev => [...prev, ...employeesToImport]);
+        alert(`${employeesToImport.length} xodim muvaffaqiyatli qo'shildi!`);
     };
 
     const handleExportWorkshops = () => {
@@ -296,6 +341,16 @@ export default function Workers() {
                                 <button onClick={handleExportWorkshops} className="flex items-center gap-2 px-4 py-2 border border-[hsl(var(--border))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors text-green-600 border-green-200 bg-green-50 dark:bg-green-900/10 hover:bg-green-100 dark:hover:bg-green-900/20">
                                     <FileDown size={18} /> Export
                                 </button>
+                                <div className="relative w-full md:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Qidirish (Ism, Tabel, Razryad)..."
+                                        className="w-full pl-10 pr-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
                             </>
                         ) : (
                             <>
@@ -323,7 +378,7 @@ export default function Workers() {
                 </div>
 
                 {/* Content Section */}
-                {viewMode === 'workshops' ? (
+                {viewMode === 'workshops' && searchTerm.length === 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {workshops.map(workshop => (
                             <WorkshopCard
@@ -386,7 +441,7 @@ export default function Workers() {
                             ))
                         ) : (
                             <div className="col-span-full text-center py-10 text-[hsl(var(--muted-foreground))]">
-                                Ushbu sehda xodimlar topilmadi.
+                                {searchTerm ? "Qidiruv bo'yicha hech kim topilmadi." : "Ushbu sehda xodimlar topilmadi."}
                             </div>
                         )}
                     </div>
@@ -475,6 +530,12 @@ export default function Workers() {
             </AnimatePresence>
 
             {/* Custom Modals */}
+            <ImportConflictsModal
+                isOpen={isConflictModalOpen}
+                onClose={() => setIsConflictModalOpen(false)}
+                conflicts={importConflicts}
+                onResolve={handleResolveConflicts}
+            />
             <AddWorkshopModal
                 isOpen={isAddWorkshopOpen}
                 onClose={() => setIsAddWorkshopOpen(false)}
