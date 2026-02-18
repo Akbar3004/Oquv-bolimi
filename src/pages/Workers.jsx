@@ -1,10 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Phone, User, X, ChevronLeft, Plus, Download, Upload, FileDown } from 'lucide-react';
+import { Search, MapPin, User, X, ChevronLeft, Plus, Download, Upload, FileDown, Pencil, Medal, Hash } from 'lucide-react';
+
+
+
+
 
 import { motion, AnimatePresence } from 'framer-motion';
 import WorkshopCard from '../components/WorkshopCard';
 import { downloadTemplate, parseEmployees, exportToExcel } from '../utils/excelHandler';
+import AddWorkshopModal from '../components/AddWorkshopModal';
+import AddWorkerModal from '../components/AddWorkerModal';
+
 
 
 // Mock initial data
@@ -15,11 +22,12 @@ const initialWorkshops = [
 ];
 
 const initialWorkers = [
-    { id: 1, name: 'Abdullayev Botir', sex: '1-Sex', lavozim: 'Mashinist', phone: '+998 90 123 45 67', joined: '2020-05-12', status: 'Active', razryad: '3-toifa', lastExamDate: '2025-12-10', lastExamGrade: '5' },
-    { id: 2, name: 'Qodirov Jamshid', sex: '2-Sex', lavozim: 'Elektrik', phone: '+998 93 987 65 43', joined: '2021-08-20', status: 'Sick', razryad: '4-toifa', lastExamDate: '2026-01-15', lastExamGrade: '4' },
-    { id: 3, name: 'Saliyeva Dildora', sex: 'Ofis', lavozim: 'Kadrlar bo\'limi', phone: '+998 99 555 44 33', joined: '2019-01-15', status: 'Active', razryad: '2-toifa', lastExamDate: '2025-11-20', lastExamGrade: '5' },
-    { id: 4, name: 'Tursunov Alisher', sex: '3-Sex', lavozim: 'Payvandchi', phone: '+998 97 111 22 33', joined: '2022-11-05', status: 'Vacation', razryad: '3-toifa', lastExamDate: '2026-02-01', lastExamGrade: '3' },
+    { id: 1, name: 'Abdullayev Botir', sex: '1-Sex', lavozim: 'Mashinist', joined: '2020-05-12', status: 'Active', razryad: '3-toifa', lastExamDate: '2025-12-10', lastExamGrade: '5' },
+    { id: 2, name: 'Qodirov Jamshid', sex: '2-Sex', lavozim: 'Elektrik', joined: '2021-08-20', status: 'Sick', razryad: '4-toifa', lastExamDate: '2026-01-15', lastExamGrade: '4' },
+    { id: 3, name: 'Saliyeva Dildora', sex: 'Ofis', lavozim: 'Kadrlar bo\'limi', joined: '2019-01-15', status: 'Active', razryad: '2-toifa', lastExamDate: '2025-11-20', lastExamGrade: '5' },
+    { id: 4, name: 'Tursunov Alisher', sex: '3-Sex', lavozim: 'Payvandchi', joined: '2022-11-05', status: 'Vacation', razryad: '3-toifa', lastExamDate: '2026-02-01', lastExamGrade: '3' },
 ];
+
 
 export default function Workers() {
     const [viewMode, setViewMode] = useState('workshops'); // 'workshops' or 'list'
@@ -28,6 +36,14 @@ export default function Workers() {
     const [workers, setWorkers] = useState(initialWorkers);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedWorker, setSelectedWorker] = useState(null);
+    const [isAddWorkshopOpen, setIsAddWorkshopOpen] = useState(false);
+    const [editingWorkshop, setEditingWorkshop] = useState(null);
+    const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
+    const [editingWorker, setEditingWorker] = useState(null);
+    const [pendingImport, setPendingImport] = useState({ workshops: [], employees: [] });
+
+
+
 
     // Update worker counts when workers change
     useEffect(() => {
@@ -54,53 +70,113 @@ export default function Workers() {
     };
 
     const handleAddWorkshop = () => {
-        const number = prompt("Seh Raqami (masalan, '4-Sex'):");
-        if (!number) return;
-
-        // Check if exists
-        if (workshops.some(w => w.number === number)) {
-            alert("Bu raqamli seh allaqachon mavjud!");
-            return;
-        }
-
-        const masterName = prompt("Master Ism Familiyasi:");
-        const func = prompt("Seh Vazifasi:");
-
-        const newWorkshop = {
-            id: Date.now(),
-            number,
-            masterName: masterName || "Tayinlanmagan",
-            function: func || "Vazifa belgilanmagan",
-            workerCount: 0
-        };
-        setWorkshops([...workshops, newWorkshop]);
+        setEditingWorkshop(null);
+        setIsAddWorkshopOpen(true);
     };
+
+    const handleEditWorkshop = (workshop) => {
+        setEditingWorkshop(workshop);
+        setIsAddWorkshopOpen(true);
+    };
+
+    const handleSaveWorkshop = (data) => {
+        if (editingWorkshop && !pendingImport.workshops.length) {
+            // Update existing (Normal Edit)
+            setWorkshops(prev => prev.map(w =>
+                w.id === editingWorkshop.id ? { ...w, ...data } : w
+            ));
+            setEditingWorkshop(null);
+        } else {
+            // Create new (Add or Import flow)
+            const { number, masterName, func } = data;
+
+            const isImportFlow = pendingImport.workshops.length > 0;
+
+            // Check if exists (only if not in import flow or ensure uniqueness)
+            if (!isImportFlow && workshops.some(w => w.number === number)) {
+                alert("Bu raqamli seh allaqachon mavjud!");
+                return;
+            }
+
+            const newWorkshop = {
+                id: Date.now(),
+                number: isImportFlow ? editingWorkshop.number : number, // Use preset number for import
+                masterName: masterName || "Tayinlanmagan",
+                function: func || "Vazifa belgilanmagan",
+                workerCount: 0
+            };
+
+            // We need to use functional state update to ensure we have latest workshops
+            setWorkshops(prev => [...prev, newWorkshop]);
+
+            if (isImportFlow) {
+                const remainingWorkshops = pendingImport.workshops.slice(1);
+
+                if (remainingWorkshops.length > 0) {
+                    // Next in queue
+                    setPendingImport(prev => ({ ...prev, workshops: remainingWorkshops }));
+
+                    // Small delay to allow modal to close/reset visual state if needed, 
+                    // or just update state to show next form
+                    setTimeout(() => {
+                        setEditingWorkshop({ number: remainingWorkshops[0], masterName: '', func: '' });
+                        setIsAddWorkshopOpen(true);
+                    }, 50);
+                } else {
+                    // All workshops created, add employees
+                    setWorkers(prev => [...prev, ...pendingImport.employees]);
+
+                    const totalWorkshops = pendingImport.workshops.length; // Approximate, assuming all processed
+                    setPendingImport({ workshops: [], employees: [] });
+                    setEditingWorkshop(null);
+                    alert(`${pendingImport.employees.length} xodim va yangi sehlar muvaffaqiyatli qo'shildi!`);
+                }
+            } else {
+                setEditingWorkshop(null);
+            }
+        }
+    };
+
+
+
 
     const handleAddWorker = () => {
         if (!selectedWorkshop) return;
-
-        const name = prompt("Xodimning Ism Familiyasi:");
-        if (!name) return;
-
-        const tabelId = prompt("Tabel Raqami:");
-        const razryad = prompt("Razryadi:");
-
-        const newWorker = {
-            id: Date.now(),
-            name,
-            sex: selectedWorkshop.number,
-            tabelId: tabelId || "1000",
-            razryad: razryad || "-",
-            lavozim: "Ishchi",
-            phone: "+998 -- --- -- --",
-            joined: new Date().toISOString().split('T')[0],
-            status: "Active",
-            lastExamDate: "-",
-            lastExamGrade: "-"
-        };
-
-        setWorkers([...workers, newWorker]);
+        setEditingWorker(null);
+        setIsAddWorkerOpen(true);
     };
+
+    const handleEditWorker = (worker) => {
+        setEditingWorker(worker);
+        setIsAddWorkerOpen(true);
+    };
+
+    const handleSaveWorker = (data) => {
+        if (editingWorker) {
+            // Update existing
+            setWorkers(prev => prev.map(w =>
+                w.id === editingWorker.id ? { ...w, ...data } : w
+            ));
+        } else {
+            // Create new
+            const { name, tabelId, razryad } = data;
+            const newWorker = {
+                id: Date.now(),
+                name,
+                sex: selectedWorkshop.number,
+                tabelId: tabelId || "1000",
+                razryad: razryad || "-",
+                lavozim: "Ishchi",
+                joined: new Date().toISOString().split('T')[0],
+                status: "Active",
+                lastExamDate: "-",
+                lastExamGrade: "-"
+            };
+            setWorkers([...workers, newWorker]);
+        }
+        setEditingWorker(null);
+    };
+
 
     const handleImport = async (e) => {
         const file = e.target.files[0];
@@ -122,23 +198,17 @@ export default function Workers() {
             let updatedWorkshops = [...workshops];
 
             // Prompt for new workshops
+            // Prompt for new workshops
             if (newWorkshopNumbers.length > 0) {
-                alert(`Yangi sehlar aniqlandi: ${newWorkshopNumbers.join(', ')}. Iltimos ularning ma'lumotlarini kiriting.`);
+                // Start the queue
+                setPendingImport({ workshops: newWorkshopNumbers, employees: importedEmployees });
 
-                for (const num of newWorkshopNumbers) {
-                    const masterName = prompt(`${num} uchun Master Ism Familiyasi:`) || "Tayinlanmagan";
-                    const func = prompt(`${num} uchun Seh Vazifasi:`) || "Avtomatik yaratilgan";
-
-                    updatedWorkshops.push({
-                        id: Date.now() + Math.random(),
-                        number: num,
-                        masterName,
-                        function: func,
-                        workerCount: 0
-                    });
-                }
-                setWorkshops(updatedWorkshops);
+                // Open first modal
+                setEditingWorkshop({ number: newWorkshopNumbers[0], masterName: '', func: '' });
+                setIsAddWorkshopOpen(true);
+                return; // Stop here, wait for user to finish modal flow
             }
+
 
             setWorkers([...workers, ...importedEmployees]);
             alert(`${importedEmployees.length} xodim va ${newWorkshopNumbers.length} yangi seh muvaffaqiyatli qo'shildi!`);
@@ -162,18 +232,17 @@ export default function Workers() {
         const currentWorkers = viewMode === 'list' ? filteredWorkers : workers;
         const fileName = selectedWorkshop ? `${selectedWorkshop.number}_Xodimlari` : "Barcha_Xodimlar";
 
-        const data = currentWorkers.map(w => ({
-            "ID": w.id,
+        const data = currentWorkers.map((w, index) => ({
+            "ID": index + 1,
             "F.I.SH": w.name,
             "Seh": w.sex,
             "Tabel Raqam": w.tabelId,
             "Razryad": w.razryad,
             "Lavozim": w.lavozim,
-            "Telefon": w.phone,
-            "Status": w.status === 'Active' ? 'Faol' : w.status === 'Sick' ? 'Kasal' : 'Ta\'tilda',
             "Oxirgi Imtihon": w.lastExamDate,
             "Baho": w.lastExamGrade
         }));
+
 
         exportToExcel(data, fileName, "Xodimlar");
     };
@@ -181,10 +250,18 @@ export default function Workers() {
     // Filter workers based on view mode and search
 
     const filteredWorkers = workers.filter(w => {
-        const matchesSearch = w.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const lowerTerm = searchTerm.toLowerCase();
+        const workerTabelId = w.tabelId ? w.tabelId.toString() : (1000 + w.id).toString();
+
+        const matchesSearch =
+            w.name.toLowerCase().includes(lowerTerm) ||
+            workerTabelId.includes(lowerTerm) ||
+            (w.razryad && w.razryad.toLowerCase().includes(lowerTerm));
+
         const matchesWorkshop = selectedWorkshop ? w.sex === selectedWorkshop.number : true;
         return matchesSearch && matchesWorkshop;
     });
+
 
     return (
         <>
@@ -233,7 +310,8 @@ export default function Workers() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" size={18} />
                                     <input
                                         type="text"
-                                        placeholder="Xodim qidirish..."
+                                        placeholder="Qidirish (Ism, Tabel, Razryad)..."
+
                                         className="w-full pl-10 pr-4 py-2 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -252,7 +330,9 @@ export default function Workers() {
                                 key={workshop.id}
                                 workshop={workshop}
                                 onClick={() => handleWorkshopClick(workshop)}
+                                onEdit={handleEditWorkshop}
                             />
+
                         ))}
                     </div>
                 ) : (
@@ -264,33 +344,45 @@ export default function Workers() {
                                     onClick={() => setSelectedWorker(worker)}
                                     className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                                 >
-                                    <div className="flex items-center gap-4 mb-4">
+                                    <div className="flex items-center gap-4 mb-4 relative">
                                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                                             {worker.name.charAt(0)}
                                         </div>
                                         <div>
                                             <h3 className="font-bold group-hover:text-[hsl(var(--primary))] transition-colors">{worker.name}</h3>
                                             <p className="text-sm text-[hsl(var(--muted-foreground))]">{worker.lavozim}</p>
+
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-md border border-indigo-200 dark:border-indigo-900/30">
+                                                <Hash size={14} />
+                                                <span className="font-mono font-bold text-sm">{worker.tabelId || (1000 + worker.id)}</span>
+                                            </div>
                                         </div>
+
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditWorker(worker);
+                                            }}
+                                            className="absolute top-0 right-0 p-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Tahrirlash"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
                                     </div>
+
                                     <div className="space-y-2 text-sm">
-                                        <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                                            <MapPin size={16} /> {worker.sex}
+                                        <div className="flex items-center justify-between text-[hsl(var(--muted-foreground))]">
+                                            <div className="flex items-center gap-2">
+                                                <MapPin size={16} /> {worker.sex}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 rounded text-xs font-medium border border-yellow-200 dark:border-yellow-900/30">
+                                                <Medal size={12} />
+                                                <span>{worker.razryad}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))]">
-                                            <Phone size={16} /> {worker.phone || '-'}
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 flex justify-between items-center">
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${worker.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                            worker.status === 'Sick' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                            }`}>
-                                            {worker.status === 'Active' ? 'Faol' : worker.status === 'Sick' ? 'Kasal' : 'Ta\'tilda'}
-                                        </span>
-                                        <span className="text-xs text-[hsl(var(--muted-foreground))]">Razryad: {worker.razryad}</span>
                                     </div>
                                 </div>
+
                             ))
                         ) : (
                             <div className="col-span-full text-center py-10 text-[hsl(var(--muted-foreground))]">
@@ -381,6 +473,22 @@ export default function Workers() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Custom Modals */}
+            <AddWorkshopModal
+                isOpen={isAddWorkshopOpen}
+                onClose={() => setIsAddWorkshopOpen(false)}
+                onSave={handleSaveWorkshop}
+                initialData={editingWorkshop}
+            />
+            <AddWorkerModal
+                isOpen={isAddWorkerOpen}
+                onClose={() => setIsAddWorkerOpen(false)}
+                onSave={handleSaveWorker}
+                workshopName={selectedWorkshop?.number}
+                initialData={editingWorker}
+            />
+
         </>
     );
 }
