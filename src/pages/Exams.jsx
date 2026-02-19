@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { UserCheck, Clock, Monitor, XCircle, CheckCircle, FileText, Download, Play, AlertTriangle } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { UserCheck, Clock, Monitor, XCircle, CheckCircle, FileText, Download, Play, AlertTriangle, Loader2 } from 'lucide-react';
+import { pdf } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
+import ExamResultPDF from '../components/ExamResultPDF';
 
 export default function Exams() {
     const [activeTab, setActiveTab] = useState('active'); // active, assign, results
-    const [showModal, setShowModal] = useState(false);
+    const [selectedTchnuk, setSelectedTchnuk] = useState("Eshmatov T.");
 
     // Mock Active Exams
     const [activeExams, setActiveExams] = useState([
@@ -14,19 +15,112 @@ export default function Exams() {
         { id: 2, name: 'Karimov Salim', type: 'Razryad', progress: 15, total: 30, correct: 10, wrong: 5, status: 'warning' }, // > 50% fail risk
     ]);
 
-    const generatePDF = () => {
-        const input = document.getElementById('exam-result-1');
-        if (!input) return;
+    // Mock Results
+    const results = [
+        {
+            id: 1,
+            name: 'Aliyev Vali',
+            position: 'Mashinist yordamchisi',
+            workshop: '1-Sex',
+            tabelId: '9842',
+            examType: 'Kvartal',
+            examFile: "O'rta bo'g'in raxbarlari(Sex masterlari).txt",
+            date: '18.02.2026',
+            startTime: '14:30',
+            endTime: '15:15',
+            duration: '45 daqiqa',
+            grade: 5,
+            score: { correct: 18, wrong: 2, total: 20 },
+            tchnuk: selectedTchnuk
+        },
+        {
+            id: 2,
+            name: 'Qodirov Jamshid',
+            position: 'Elektrik',
+            workshop: '2-Sex',
+            tabelId: '1023',
+            examType: 'Xavfsizlik texnikasi',
+            examFile: "Mehnat muhofazasi va xavfsizlik texnikasi.txt",
+            date: '15.02.2026',
+            startTime: '09:00',
+            endTime: '09:25',
+            duration: '25 daqiqa',
+            grade: 4,
+            score: { correct: 16, wrong: 4, total: 20 },
+            tchnuk: selectedTchnuk
+        },
+        {
+            id: 3,
+            name: 'Tursunov Alisher',
+            position: 'Payvandchi',
+            workshop: '3-Sex',
+            tabelId: '5521',
+            examType: 'Kvartal',
+            examFile: "Payvandlash ishlari texnologiyasi.txt",
+            date: '10.02.2026',
+            startTime: '10:15',
+            endTime: '11:00',
+            duration: '45 daqiqa',
+            grade: 3,
+            score: { correct: 13, wrong: 7, total: 20 },
+            tchnuk: selectedTchnuk
+        }
+    ];
 
-        html2canvas(input, { scale: 2 }).then((canvas) => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    const [loadingPdfId, setLoadingPdfId] = useState(null);
 
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save("Aliyev_Vali_Natija.pdf");
+    // Helper: convert image URL to data URL for @react-pdf/renderer
+    const imageToDataUrl = (url) => {
+        return new Promise((resolve, reject) => {
+            const img = new window.Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null); // fallback: no logo
+            img.src = url;
         });
+    };
+
+    const generatePDF = async (result) => {
+        setLoadingPdfId(result.id);
+        try {
+            // 1. Generate QR code as data URL
+            const qrDataUrl = await QRCode.toDataURL(
+                `https://railway-exam.uz/verify/${result.id}`,
+                { width: 150, margin: 1, color: { dark: '#000', light: '#fff' } }
+            );
+
+            // 2. Load logo as data URL (avoids cross-origin issues in @react-pdf)
+            const logoDataUrl = await imageToDataUrl('/logo.png');
+
+            // 3. Generate PDF blob directly (no html2canvas!)
+            const blob = await pdf(
+                <ExamResultPDF
+                    result={{ ...result, tchnuk: selectedTchnuk }}
+                    qrDataUrl={qrDataUrl}
+                    logoDataUrl={logoDataUrl}
+                />
+            ).toBlob();
+
+            // 4. Download the PDF
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${result.name.replace(/\s+/g, '_')}_Natija.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('PDF yaratishda xatolik:', err);
+            alert('PDF yaratishda xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.');
+        } finally {
+            setLoadingPdfId(null);
+        }
     };
 
     return (
@@ -100,7 +194,20 @@ export default function Exams() {
 
             {activeTab === 'results' && (
                 <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm">
-                    <h2 className="text-lg font-bold mb-4">Oxirgi Natijalar</h2>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-lg font-bold">Oxirgi Natijalar</h2>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-[hsl(var(--muted-foreground))]">TCHNUK (O'quv bo'limi rahbari):</label>
+                            <input
+                                type="text"
+                                value={selectedTchnuk}
+                                onChange={(e) => setSelectedTchnuk(e.target.value)}
+                                className="px-3 py-1.5 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))]"
+                                placeholder="F.I.SH kiriting..."
+                            />
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs uppercase bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]">
@@ -113,51 +220,34 @@ export default function Exams() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[hsl(var(--border))]">
-                                <tr className="hover:bg-[hsl(var(--secondary))] transition-colors">
-                                    <td className="px-4 py-3 font-medium">Aliyev Vali</td>
-                                    <td className="px-4 py-3">Kvartal</td>
-                                    <td className="px-4 py-3">18.02.2026</td>
-                                    <td className="px-4 py-3 text-green-500 font-bold">5 (A'lo)</td>
-                                    <td className="px-4 py-3 text-right">
-                                        <button onClick={generatePDF} className="p-2 hover:bg-[hsl(var(--accent))] rounded-full text-[hsl(var(--primary))]">
-                                            <Download size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
+                                {results.map(result => (
+                                    <tr key={result.id} className="hover:bg-[hsl(var(--secondary))] transition-colors">
+                                        <td className="px-4 py-3 font-medium">
+                                            <div>{result.name}</div>
+                                            <div className="text-[10px] text-gray-400">{result.examFile}</div>
+                                        </td>
+                                        <td className="px-4 py-3">{result.examType}</td>
+                                        <td className="px-4 py-3">{result.date}</td>
+                                        <td className={`px-4 py-3 font-bold ${result.grade >= 4 ? 'text-green-500' : result.grade === 3 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                            {result.grade} ({result.grade === 5 ? "A'lo" : result.grade === 4 ? "Yaxshi" : result.grade === 3 ? "Qoniqarli" : "Qoniqarsiz"})
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button
+                                                onClick={() => generatePDF(result)}
+                                                disabled={loadingPdfId === result.id}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] rounded-md transition-colors text-xs font-medium disabled:opacity-50"
+                                            >
+                                                {loadingPdfId === result.id ? (
+                                                    <><Loader2 size={14} className="animate-spin" /> Yuklanmoqda...</>
+                                                ) : (
+                                                    <><Download size={14} /> PDF</>
+                                                )}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
-                    </div>
-
-                    {/* Hidden PDF content */}
-                    <div id="exam-result-1" className="fixed top-[-9999px] left-[-9999px] bg-white text-black p-10 w-[210mm] min-h-[297mm]">
-                        <div className="text-center border-b-2 border-black pb-6 mb-8">
-                            <h1 className="text-2xl font-bold uppercase">O'zbekiston Temir Yo'llari</h1>
-                            <h2 className="text-xl">Imtihon Natijalari</h2>
-                        </div>
-                        <div className="mb-6 text-lg">
-                            <p><strong>F.I.SH:</strong> Aliyev Vali</p>
-                            <p><strong>Lavozim:</strong> Mashinist yordamchisi</p>
-                            <p><strong>Imtihon Turi:</strong> Kvartal</p>
-                            <p><strong>Sana:</strong> 18.02.2026</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-8 mb-10 text-center">
-                            <div className="border border-black p-4 rounded">
-                                <p className="text-sm">To'g'ri Javoblar</p>
-                                <p className="text-4xl font-bold text-green-600">18</p>
-                            </div>
-                            <div className="border border-black p-4 rounded">
-                                <p className="text-sm">Xato Javoblar</p>
-                                <p className="text-4xl font-bold text-red-600">2</p>
-                            </div>
-                        </div>
-                        <div className="text-center mb-16">
-                            <p className="text-6xl font-black mb-2">5</p>
-                            <p className="text-xl uppercase tracking-widest">A'lo</p>
-                        </div>
-                        <div className="flex justify-between mt-auto pt-10 border-t border-black">
-                            <p>Komissiya raisi: _______________</p>
-                            <p>A'zolar: _______________</p>
-                        </div>
                     </div>
                 </div>
             )}

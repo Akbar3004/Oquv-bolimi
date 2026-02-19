@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Imtihon Natijasi</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .page {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: #fff;
+      width: 794px;
+      min-height: 1123px;
+      padding: 0;
+      position: relative;
+      color: #1a1a2e;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════════════════════════
+     DECORATIVE TOP STRIPE
+     ══════════════════════════════════════════════ */
+    .top-stripe {
+      height: 8px;
+      background: linear-gradient(90deg, #0f2b5b 0%, #1a5276 35%, #2980b9 65%, #0f2b5b 100%);
+    }
+
+    /* ══════════════════════════════════════════════
+     HEADER
+     ══════════════════════════════════════════════ */
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 24px 40px 20px;
+      gap: 20px;
+    }
+
+    .logo-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 2.5px solid #c5a028;
+      background: linear-gradient(145deg, #fef3c7, #d4a017);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .header-center {
+      flex: 1;
+      text-align: center;
+    }
+
+    .org-name {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f2b5b;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+
+    .depot-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #34495e;
+      text-transform: uppercase;
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Title Badge */
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      padding: 0 40px;
+    }
+
+    .title-line {
+      flex: 1;
+      height: 1.5px;
+      background: linear-gradient(90deg, transparent, #0f2b5b, transparent);
+    }
+
+    .title-badge {
+      background: #0f2b5b;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 8px 36px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin: 0 16px;
+    }
+
+    /* ══════════════════════════════════════════════
+     PROFILE CARD
+     ══════════════════════════════════════════════ */
+    .profile-section {
+      margin: 24px 40px 0;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 22px 28px;
+      display: grid;
+      grid-template-columns: 90px 1fr 1fr;
+      gap: 20px;
+      align-items: center;
+      background: #fafbfc;
+    }
+
+    .avatar-box {
+      width: 82px;
+      height: 96px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f3f4f6;
+    }
+
+    .avatar-box svg {
+      color: #9ca3af;
+    }
+
+    .info-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-group.right {
+      text-align: right;
+    }
+
+    .field-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .field-value.name {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f2b5b;
+    }
+
+    .field-value.small {
+      font-size: 12px;
+    }
+
+    .exam-file-note {
+      font-size: 9px;
+      color: #9ca3af;
+      font-style: italic;
+      margin-top: 1px;
+    }
+
+    /* ══════════════════════════════════════════════
+     TIME ROW
+     ══════════════════════════════════════════════ */
+    .time-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 18px 40px 0;
+    }
+
+    .time-card {
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fff;
+    }
+
+    .time-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #eef2ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .time-icon svg {
+      width: 16px;
+      height: 16px;
+      color: #0f2b5b;
+    }
+
+    .time-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .time-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: #111827;
+      margin-top: 1px;
+    }
+
+    /* ══════════════════════════════════════════════
+     RESULTS SECTION
+     ══════════════════════════════════════════════ */
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 14px;
+      margin: 18px 40px 0;
+      align-items: stretch;
+    }
+
+    .stats-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Total Questions Bar */
+    .total-bar {
+      background: linear-gradient(135deg, #0f2b5b 0%, #1a5276 100%);
+      color: #fff;
+      border-radius: 10px;
+      padding: 16px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .total-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .total-number {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    /* Answer Cards Row */
+    .answers-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .answer-card {
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .answer-card.correct {
+      background: #ecfdf5;
+      border: 1.5px solid #a7f3d0;
+    }
+
+    .answer-card.wrong {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+    }
+
+    .answer-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .answer-card.correct .answer-label {
+      color: #065f46;
+    }
+
+    .answer-card.wrong .answer-label {
+      color: #991b1b;
+    }
+
+    .answer-number {
+      font-size: 44px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .answer-card.correct .answer-number {
+      color: #059669;
+    }
+
+    .answer-card.wrong .answer-number {
+      color: #dc2626;
+    }
+
+    /* Grade Box */
+    .grade-box {
+      border: 2.5px solid {
+          {
+          GRADE_COLOR
+        }
+      }
+
+      ;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .grade-title {
+      font-size: 9px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .grade-number {
+      font-size: 64px;
+      font-weight: 900;
+
+      color: {
+          {
+          GRADE_COLOR
+        }
+      }
+
+      ;
+      line-height: 1;
+    }
+
+    .grade-text {
+      font-size: 18px;
+      font-weight: 800;
+
+      color: {
+          {
+          GRADE_COLOR
+        }
+      }
+
+      ;
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+
+    /* ══════════════════════════════════════════════
+     EFFICIENCY BAR
+     ══════════════════════════════════════════════ */
+    .efficiency-section {
+      margin: 24px 40px 0;
+      padding-top: 18px;
+      border-top: 1.5px solid #f3f4f6;
+    }
+
+    .efficiency-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .efficiency-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .efficiency-percent {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f2b5b;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 10px;
+      background: #f3f4f6;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+
+      width: {
+          {
+          PERCENTAGE
+        }
+      }
+
+      %;
+      background: linear-gradient(90deg, #0f2b5b, #2980b9);
+      border-radius: 5px;
+      transition: width 0.5s ease;
+    }
+
+    /* ══════════════════════════════════════════════
+     FOOTER
+     ══════════════════════════════════════════════ */
+    .footer-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin: 32px 40px 0;
+      padding-top: 20px;
+    }
+
+    .sig-block {}
+
+    .sig-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .sig-label-text {
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .sig-dotted {
+      flex: 1;
+      min-width: 200px;
+      border-bottom: 1.5px dotted #6b7280;
+      text-align: right;
+      padding-bottom: 2px;
+    }
+
+    .sig-name-text {
+      font-weight: 700;
+      color: #111827;
+      font-size: 13px;
+    }
+
+    .sig-note-text {
+      font-size: 9px;
+      color: #9ca3af;
+      font-style: italic;
+      margin-top: 3px;
+      margin-left: 90px;
+    }
+
+    .qr-block {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .qr-text {
+      font-size: 8px;
+      color: #6b7280;
+      max-width: 110px;
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    .qr-placeholder {
+      width: 76px;
+      height: 76px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+    }
+
+    /* ══════════════════════════════════════════════
+     BOTTOM STRIPE
+     ══════════════════════════════════════════════ */
+    .bottom-stripe {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, #0f2b5b 0%, #1a5276 35%, #2980b9 65%, #0f2b5b 100%);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- TOP STRIPE -->
+    <div class="top-stripe"></div>
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="logo-wrap">
+        <img src="/logo.png" alt="Logo">
+      </div>
+      <div class="header-center">
+        <div class="org-name">"O'zbekiston temir yo'llari" AJ</div>
+        <div class="depot-name">"O'zbekiston" lokomotiv deposi</div>
+      </div>
+    </div>
+
+    <!-- TITLE -->
+    <div class="title-row">
+      <div class="title-line"></div>
+      <div class="title-badge">Imtihon Natijasi</div>
+      <div class="title-line"></div>
+    </div>
+
+    <!-- PROFILE SECTION -->
+    <div class="profile-section">
+      <div class="avatar-box">
+        <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="1.5" fill="none"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </div>
+      <div class="info-group">
+        <div>
+          <div class="field-label">Lavozim</div>
+          <div class="field-value">{{POSITION}}</div>
+        </div>
+        <div>
+          <div class="field-label">Tabel raqami</div>
+          <div class="field-value">{{TABEL_ID}}</div>
+        </div>
+      </div>
+      <div class="info-group right">
+        <div>
+          <div class="field-label">F.I.Sh</div>
+          <div class="field-value name">{{NAME}}</div>
+        </div>
+        <div>
+          <div class="field-label">Bo'lim / Sex</div>
+          <div class="field-value">{{WORKSHOP}}</div>
+        </div>
+        <div>
+          <div class="field-label">Test mavzusi</div>
+          <div class="field-value small">{{EXAM_TYPE}}</div>
+          <div class="exam-file-note">{{EXAM_FILE}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME ROW -->
+    <div class="time-grid">
+      <div class="time-card">
+        <div class="time-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="time-label">Topshirgan sana</div>
+          <div class="time-value">{{DATE}}</div>
+        </div>
+      </div>
+      <div class="time-card">
+        <div class="time-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="time-label">Boshlanish vaqti</div>
+          <div class="time-value">{{START_TIME}}</div>
+        </div>
+      </div>
+      <div class="time-card">
+        <div class="time-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 8 14"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="time-label">Tugatish vaqti</div>
+          <div class="time-value">{{END_TIME}}</div>
+        </div>
+      </div>
+      <div class="time-card">
+        <div class="time-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M5 22h14"></path>
+            <path d="M5 2h14"></path>
+            <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+            <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="time-label">Sarflangan vaqt</div>
+          <div class="time-value">{{DURATION}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-grid">
+      <div class="stats-col">
+        <div class="total-bar">
+          <span class="total-label">Jami savollar</span>
+          <span class="total-number">{{SCORE_TOTAL}}</span>
+        </div>
+        <div class="answers-row">
+          <div class="answer-card correct">
+            <div class="answer-label">To'g'ri javoblar</div>
+            <div class="answer-number">{{SCORE_CORRECT}}</div>
+          </div>
+          <div class="answer-card wrong">
+            <div class="answer-label">Xato javoblar</div>
+            <div class="answer-number">{{SCORE_WRONG}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="grade-box">
+        <div class="grade-title">Yakuniy baho</div>
+        <div class="grade-number">{{GRADE}}</div>
+        <div class="grade-text">{{GRADE_LABEL}}</div>
+      </div>
+    </div>
+
+    <!-- EFFICIENCY -->
+    <div class="efficiency-section">
+      <div class="efficiency-header">
+        <span class="efficiency-label">Samaradorlik ko'rsatkichi</span>
+        <span class="efficiency-percent">{{PERCENTAGE}}%</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer-section">
+      <div class="sig-block">
+        <div class="sig-row">
+          <span class="sig-label-text">TCHNUK:</span>
+          <span class="sig-dotted">
+            <span class="sig-name-text">{{TCHNUK}}</span>
+          </span>
+        </div>
+        <div class="sig-note-text">imzo</div>
+      </div>
+      <div class="qr-block">
+        <div class="qr-text">Mazkur hujjat elektron tarzda shakllantirildi. QR kod orqali tekshiring.</div>
+        <div class="qr-placeholder" id="qr-mount-point">
+          <!-- QR Code -->
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM STRIPE -->
+    <div class="bottom-stripe"></div>
+
+  </div>
+</body>
+
+</html>
