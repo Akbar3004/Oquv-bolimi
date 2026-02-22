@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useWorkers } from './contexts/WorkersContext';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -71,17 +72,12 @@ function MainApp() {
   );
 }
 
-// === Xodimlar ma'lumotlari (imtihon uchun) ===
-const MOCK_WORKERS = [
-  { id: 1, name: 'Abdullayev Botir', sex: '1-Sex', lavozim: 'Mashinist', tabelId: '1001', razryad: '3-toifa', lastExamDate: '2025-12-10', lastExamGrade: '5' },
-  { id: 2, name: 'Qodirov Jamshid', sex: '2-Sex', lavozim: 'Elektrik', tabelId: '1002', razryad: '4-toifa', lastExamDate: '2026-01-15', lastExamGrade: '4' },
-  { id: 3, name: 'Saliyeva Dildora', sex: 'Ofis', lavozim: 'Kadrlar bo\'limi', tabelId: '1003', razryad: '2-toifa', lastExamDate: '2025-11-20', lastExamGrade: '5' },
-  { id: 4, name: 'Tursunov Alisher', sex: '3-Sex', lavozim: 'Payvandchi', tabelId: '1004', razryad: '3-toifa', lastExamDate: '2026-02-01', lastExamGrade: '3' },
-];
+
 
 // === Auth Wrapper — tizim holati boshqaruvi ===
 function AppContent() {
   const { currentUser, isLoading, loginByTabel } = useAuth();
+  const { getAllWorkersForExam } = useWorkers();
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'exam'
 
   // Yuklanish holati
@@ -106,12 +102,15 @@ function AppContent() {
     return <MainApp />;
   }
 
+  // Haqiqiy xodimlar bazasidan ma'lumot olish
+  const workersForExam = getAllWorkersForExam();
+
   // Kirish sahifasi
   if (authMode === 'exam') {
     return (
       <ExamLoginPage
         onSwitchToLogin={() => setAuthMode('login')}
-        workers={MOCK_WORKERS}
+        workers={workersForExam}
         onVerified={(worker) => loginByTabel(worker.tabelId || (1000 + worker.id).toString(), worker)}
       />
     );

@@ -251,8 +251,14 @@ export default function ExamLoginPage({ onSwitchToLogin, workers, onVerified }) 
                                     {/* Worker Info */}
                                     {foundWorker && (
                                         <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
-                                                {foundWorker.name.charAt(0)}
+                                            <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                                                {foundWorker.photo ? (
+                                                    <img src={foundWorker.photo} alt={foundWorker.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                                                        {foundWorker.name.charAt(0)}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
                                                 <p className="text-white font-semibold text-sm">{foundWorker.name}</p>

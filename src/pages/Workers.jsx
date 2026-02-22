@@ -2,39 +2,31 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, User, X, ChevronLeft, Plus, Download, Upload, FileDown, Pencil, Medal, Hash } from 'lucide-react';
 
-
-
-
-
 import { motion, AnimatePresence } from 'framer-motion';
 import WorkshopCard from '../components/WorkshopCard';
 import { downloadTemplate, parseEmployees, exportToExcel } from '../utils/excelHandler';
 import AddWorkshopModal from '../components/AddWorkshopModal';
 import AddWorkerModal from '../components/AddWorkerModal';
 import ImportConflictsModal from '../components/ImportConflictsModal';
-
-
-
-// Mock initial data
-const initialWorkshops = [
-    { id: 1, number: '1-Sex', masterName: 'Ali Valiyev', function: 'Temir kesish', workerCount: 2 },
-    { id: 2, number: '2-Sex', masterName: 'Vali Aliyev', function: 'Payvandlash', workerCount: 1 },
-    { id: 3, number: '3-Sex', masterName: 'G\'anisher Toshmatov', function: 'Yig\'ish', workerCount: 1 },
-];
-
-const initialWorkers = [
-    { id: 1, name: 'Abdullayev Botir', sex: '1-Sex', lavozim: 'Mashinist', joined: '2020-05-12', status: 'Active', razryad: '3-toifa', lastExamDate: '2025-12-10', lastExamGrade: '5' },
-    { id: 2, name: 'Qodirov Jamshid', sex: '2-Sex', lavozim: 'Elektrik', joined: '2021-08-20', status: 'Sick', razryad: '4-toifa', lastExamDate: '2026-01-15', lastExamGrade: '4' },
-    { id: 3, name: 'Saliyeva Dildora', sex: 'Ofis', lavozim: 'Kadrlar bo\'limi', joined: '2019-01-15', status: 'Active', razryad: '2-toifa', lastExamDate: '2025-11-20', lastExamGrade: '5' },
-    { id: 4, name: 'Tursunov Alisher', sex: '3-Sex', lavozim: 'Payvandchi', joined: '2022-11-05', status: 'Vacation', razryad: '3-toifa', lastExamDate: '2026-02-01', lastExamGrade: '3' },
-];
+import { useWorkers } from '../contexts/WorkersContext';
 
 
 export default function Workers() {
+    const {
+        workers,
+        workshops,
+        setWorkers,
+        setWorkshops,
+        addWorker,
+        updateWorker,
+        addWorkshop,
+        updateWorkshop,
+        importWorkers,
+        getWorkshopsWithCounts,
+    } = useWorkers();
+
     const [viewMode, setViewMode] = useState('workshops'); // 'workshops' or 'list'
     const [selectedWorkshop, setSelectedWorkshop] = useState(null);
-    const [workshops, setWorkshops] = useState(initialWorkshops);
-    const [workers, setWorkers] = useState(initialWorkers);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedWorker, setSelectedWorker] = useState(null);
     const [isAddWorkshopOpen, setIsAddWorkshopOpen] = useState(false);
@@ -46,21 +38,8 @@ export default function Workers() {
     const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
     const [tempImportData, setTempImportData] = useState([]);
 
-
-
-
-    // Update worker counts when workers change
-    useEffect(() => {
-        const counts = {};
-        workers.forEach(w => {
-            counts[w.sex] = (counts[w.sex] || 0) + 1;
-        });
-
-        setWorkshops(prev => prev.map(ws => ({
-            ...ws,
-            workerCount: counts[ws.number] || 0
-        })));
-    }, [workers]);
+    // Sexlarni xodimlar soni bilan olish
+    const workshopsWithCounts = getWorkshopsWithCounts();
 
     const handleWorkshopClick = (workshop) => {
         setSelectedWorkshop(workshop);
@@ -86,13 +65,11 @@ export default function Workers() {
     const handleSaveWorkshop = (data) => {
         if (editingWorkshop && !pendingImport.workshops.length) {
             // Update existing (Normal Edit)
-            setWorkshops(prev => prev.map(w =>
-                w.id === editingWorkshop.id ? { ...w, ...data } : w
-            ));
+            updateWorkshop(editingWorkshop.id, data);
             setEditingWorkshop(null);
         } else {
             // Create new (Add or Import flow)
-            const { number, masterName } = data; // function is also in data
+            const { number, masterName } = data;
 
             const isImportFlow = pendingImport.workshops.length > 0;
 
@@ -104,33 +81,27 @@ export default function Workers() {
 
             const newWorkshop = {
                 id: Date.now(),
-                number: isImportFlow ? editingWorkshop.number : number, // Use preset number for import
+                number: isImportFlow ? editingWorkshop.number : number,
                 masterName: masterName || "Tayinlanmagan",
                 function: data.function || "Vazifa belgilanmagan",
                 workerCount: 0
             };
 
-            // We need to use functional state update to ensure we have latest workshops
             setWorkshops(prev => [...prev, newWorkshop]);
 
             if (isImportFlow) {
                 const remainingWorkshops = pendingImport.workshops.slice(1);
 
                 if (remainingWorkshops.length > 0) {
-                    // Next in queue
                     setPendingImport(prev => ({ ...prev, workshops: remainingWorkshops }));
 
-                    // Small delay to allow modal to close/reset visual state if needed, 
-                    // or just update state to show next form
                     setTimeout(() => {
                         setEditingWorkshop({ number: remainingWorkshops[0], masterName: '', func: '' });
                         setIsAddWorkshopOpen(true);
                     }, 50);
                 } else {
-                    // All workshops created, add employees
-                    setWorkers(prev => [...prev, ...pendingImport.employees]);
+                    importWorkers(pendingImport.employees);
 
-                    const totalWorkshops = pendingImport.workshops.length; // Approximate, assuming all processed
                     setPendingImport({ workshops: [], employees: [] });
                     setEditingWorkshop(null);
                     alert(`${pendingImport.employees.length} xodim va yangi sehlar muvaffaqiyatli qo'shildi!`);
@@ -140,9 +111,6 @@ export default function Workers() {
             }
         }
     };
-
-
-
 
     const handleAddWorker = () => {
         if (!selectedWorkshop) return;
@@ -158,25 +126,18 @@ export default function Workers() {
     const handleSaveWorker = (data) => {
         if (editingWorker) {
             // Update existing
-            setWorkers(prev => prev.map(w =>
-                w.id === editingWorker.id ? { ...w, ...data } : w
-            ));
+            updateWorker(editingWorker.id, data);
         } else {
             // Create new
-            const { name, tabelId, razryad } = data;
-            const newWorker = {
-                id: Date.now(),
+            const { name, tabelId, razryad, lavozim, photo } = data;
+            addWorker({
                 name,
                 sex: selectedWorkshop.number,
                 tabelId: tabelId || "1000",
                 razryad: razryad || "-",
-                lavozim: "Ishchi",
-                joined: new Date().toISOString().split('T')[0],
-                status: "Active",
-                lastExamDate: "-",
-                lastExamGrade: "-"
-            };
-            setWorkers([...workers, newWorker]);
+                lavozim: lavozim || "Ishchi",
+                photo: photo || null,
+            });
         }
         setEditingWorker(null);
     };
@@ -186,7 +147,6 @@ export default function Workers() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Reset file input value to allow re-importing same file if cancelled
         e.target.value = '';
 
         try {
@@ -209,7 +169,6 @@ export default function Workers() {
                 return;
             }
 
-            // No duplicates, proceed
             processImportedEmployees(importedEmployees);
 
         } catch (error) {
@@ -224,7 +183,6 @@ export default function Workers() {
         let finalEmployees = [...tempImportData];
 
         if (resolution === 'skip') {
-            // Filter out duplicates
             finalEmployees = finalEmployees.filter(imp =>
                 !importConflicts.some(dup => dup.name === imp.name && String(dup.tabelId) === String(dup.tabelId))
             );
@@ -243,28 +201,23 @@ export default function Workers() {
     };
 
     const processImportedEmployees = (employeesToImport) => {
-        // Identify new workshops
         const uniqueWorkshopNumbers = [...new Set(employeesToImport.map(e => e.sex))];
         const existingWorkshopNumbers = workshops.map(w => w.number);
         const newWorkshopNumbers = uniqueWorkshopNumbers.filter(num => !existingWorkshopNumbers.includes(num));
 
-        // Prompt for new workshops
         if (newWorkshopNumbers.length > 0) {
-            // Start the queue
             setPendingImport({ workshops: newWorkshopNumbers, employees: employeesToImport });
-
-            // Open first modal
             setEditingWorkshop({ number: newWorkshopNumbers[0], masterName: '', func: '' });
             setIsAddWorkshopOpen(true);
-            return; // Stop here, wait for user to finish modal flow
+            return;
         }
 
-        setWorkers(prev => [...prev, ...employeesToImport]);
+        importWorkers(employeesToImport);
         alert(`${employeesToImport.length} xodim muvaffaqiyatli qo'shildi!`);
     };
 
     const handleExportWorkshops = () => {
-        const data = workshops.map(w => ({
+        const data = workshopsWithCounts.map(w => ({
             "Seh Raqami": w.number,
             "Mas'ul": w.masterName,
             "Vazifasi": w.function,
@@ -380,7 +333,7 @@ export default function Workers() {
                 {/* Content Section */}
                 {viewMode === 'workshops' && searchTerm.length === 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {workshops.map(workshop => (
+                        {workshopsWithCounts.map(workshop => (
                             <WorkshopCard
                                 key={workshop.id}
                                 workshop={workshop}
@@ -400,8 +353,15 @@ export default function Workers() {
                                     className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                                 >
                                     <div className="flex items-center gap-4 mb-4 relative">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                            {worker.name.charAt(0)}
+                                        {/* Avatar — rasm yoki harf */}
+                                        <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                                            {worker.photo ? (
+                                                <img src={worker.photo} alt={worker.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                                    {worker.name.charAt(0)}
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <h3 className="font-bold group-hover:text-[hsl(var(--primary))] transition-colors">{worker.name}</h3>
@@ -488,7 +448,11 @@ export default function Workers() {
                             <div className="relative -mt-16 flex flex-col items-center z-10 px-6 shrink-0">
                                 <div className="p-1.5 bg-white rounded-full shadow-lg">
                                     <div className="w-28 h-28 bg-gray-200 rounded-full overflow-hidden border-2 border-[#1e3a8a] flex items-center justify-center">
-                                        <User size={56} className="text-gray-400" />
+                                        {selectedWorker.photo ? (
+                                            <img src={selectedWorker.photo} alt={selectedWorker.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <User size={56} className="text-gray-400" />
+                                        )}
                                     </div>
                                 </div>
 
