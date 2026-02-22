@@ -11,45 +11,122 @@ const DEFAULT_USERS = [
         fullName: 'Administrator',
         role: 'admin',
         avatar: null,
+        permissions: {
+            dashboard: { view: true, edit: true },
+            lessons: { view: true, edit: true },
+            exams: { view: true, edit: true },
+            reports: { view: true, edit: true },
+            workers: { view: true, edit: true },
+            users: { view: true, edit: true },
+        },
+    },
+    {
+        id: 2,
+        username: 'tchnuk',
+        password: 'tchnuk123',
+        fullName: "O'quv bo'limi rahbari",
+        role: 'tchnuk',
+        avatar: null,
+        permissions: {
+            dashboard: { view: true, edit: true },
+            lessons: { view: true, edit: true },
+            exams: { view: true, edit: true },
+            reports: { view: true, edit: true },
+            workers: { view: true, edit: true },
+            users: { view: false, edit: false },
+        },
     },
 ];
 
-// Rollar va ularning ruxsatlari
+// Barcha mavjud ruxsatlar ro'yxati
+export const ALL_PERMISSIONS = {
+    dashboard: { label: "Boshqaruv Paneli", description: "Asosiy statistika va ko'rsatkichlar" },
+    lessons: { label: "Darslar", description: "Dars jadvallari va materiallar" },
+    exams: { label: "Imtihonlar", description: "Imtihonlar va natijalar" },
+    reports: { label: "Hisobotlar", description: "Hisobotlar va tahlillar" },
+    workers: { label: "Xodimlar", description: "Xodimlar ma'lumotlari" },
+    users: { label: "Foydalanuvchilar", description: "Login/parol va rollar boshqaruvi" },
+};
+
+// Rollar — faqat shablon sifatida (standart ruxsatlar to'plami)
 export const ROLES = {
     admin: {
         label: "Administrator",
-        description: "Barcha bo'limlarga kirish va foydalanuvchilarni boshqarish",
+        description: "Barcha bo'limlarga kirish va boshqarish",
         color: "from-red-500 to-orange-500",
-        icon: "👑",
-        permissions: ['dashboard', 'lessons', 'exams', 'reports', 'workers', 'users'],
+        defaultPermissions: {
+            dashboard: { view: true, edit: true },
+            lessons: { view: true, edit: true },
+            exams: { view: true, edit: true },
+            reports: { view: true, edit: true },
+            workers: { view: true, edit: true },
+            users: { view: true, edit: true },
+        },
     },
     teacher: {
         label: "O'qituvchi",
         description: "Darslar va imtihonlarni boshqarish",
         color: "from-blue-500 to-cyan-500",
-        icon: "👨‍🏫",
-        permissions: ['dashboard', 'lessons', 'exams'],
+        defaultPermissions: {
+            dashboard: { view: true, edit: false },
+            lessons: { view: true, edit: true },
+            exams: { view: true, edit: true },
+            reports: { view: false, edit: false },
+            workers: { view: false, edit: false },
+            users: { view: false, edit: false },
+        },
     },
     inspector: {
         label: "Nazoratchi",
         description: "Hisobotlar va monitoring",
         color: "from-green-500 to-emerald-500",
-        icon: "🔍",
-        permissions: ['dashboard', 'reports', 'exams'],
+        defaultPermissions: {
+            dashboard: { view: true, edit: false },
+            lessons: { view: false, edit: false },
+            exams: { view: true, edit: false },
+            reports: { view: true, edit: true },
+            workers: { view: false, edit: false },
+            users: { view: false, edit: false },
+        },
+    },
+    tchnuk: {
+        label: "O'quv bo'limi rahbari",
+        description: "Darslar, imtihonlar, hisobotlar va xodimlarni boshqarish",
+        color: "from-sky-500 to-blue-600",
+        defaultPermissions: {
+            dashboard: { view: true, edit: true },
+            lessons: { view: true, edit: true },
+            exams: { view: true, edit: true },
+            reports: { view: true, edit: true },
+            workers: { view: true, edit: true },
+            users: { view: false, edit: false },
+        },
     },
     hr: {
         label: "Kadrlar bo'limi",
         description: "Xodimlarni boshqarish",
         color: "from-purple-500 to-pink-500",
-        icon: "👥",
-        permissions: ['dashboard', 'workers'],
+        defaultPermissions: {
+            dashboard: { view: true, edit: false },
+            lessons: { view: false, edit: false },
+            exams: { view: false, edit: false },
+            reports: { view: false, edit: false },
+            workers: { view: true, edit: true },
+            users: { view: false, edit: false },
+        },
     },
     exam_taker: {
         label: "Imtihon topshiruvchi",
         description: "Imtihon topshirish",
         color: "from-amber-500 to-yellow-500",
-        icon: "📝",
-        permissions: ['exam_interface'],
+        defaultPermissions: {
+            dashboard: { view: false, edit: false },
+            lessons: { view: false, edit: false },
+            exams: { view: false, edit: false },
+            reports: { view: false, edit: false },
+            workers: { view: false, edit: false },
+            users: { view: false, edit: false },
+        },
     },
 };
 
@@ -57,11 +134,41 @@ export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [users, setUsers] = useState(() => {
         const saved = localStorage.getItem('oquv_users');
-        return saved ? JSON.parse(saved) : DEFAULT_USERS;
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                let migrated = parsed.map(u => {
+                    // Eski formatdagi permissions ni yangi formatga o'tkazish
+                    if (!u.permissions || typeof u.permissions !== 'object' || Array.isArray(u.permissions)) {
+                        const role = ROLES[u.role];
+                        return { ...u, permissions: role ? { ...role.defaultPermissions } : ROLES.teacher.defaultPermissions };
+                    }
+                    // Agar permissions mavjud lekin view/edit yo'q bo'lsa (yarim eski format)
+                    const firstPerm = Object.values(u.permissions)[0];
+                    if (firstPerm && typeof firstPerm !== 'object') {
+                        const role = ROLES[u.role];
+                        return { ...u, permissions: role ? { ...role.defaultPermissions } : ROLES.teacher.defaultPermissions };
+                    }
+                    return u;
+                });
+
+                // Admin user har doim mavjud bo'lishini ta'minlash
+                const hasAdmin = migrated.some(u => u.id === 1 && u.username === 'admin');
+                if (!hasAdmin) {
+                    migrated = [DEFAULT_USERS[0], ...migrated.filter(u => u.username !== 'admin')];
+                }
+
+                return migrated;
+            } catch (e) {
+                console.error('localStorage parse xatosi, reset qilinmoqda:', e);
+                localStorage.removeItem('oquv_users');
+                return DEFAULT_USERS;
+            }
+        }
+        return DEFAULT_USERS;
     });
     const [isLoading, setIsLoading] = useState(true);
 
-    // Boshlang'ichda sessiyani tekshirish
     useEffect(() => {
         const savedSession = localStorage.getItem('oquv_session');
         if (savedSession) {
@@ -74,12 +181,10 @@ export function AuthProvider({ children }) {
         setIsLoading(false);
     }, []);
 
-    // Users o'zgarganda saqlash
     useEffect(() => {
         localStorage.setItem('oquv_users', JSON.stringify(users));
     }, [users]);
 
-    // Login/parol orqali kirish
     const login = (username, password) => {
         const user = users.find(
             u => u.username === username && u.password === password
@@ -92,7 +197,6 @@ export function AuthProvider({ children }) {
         return { success: false, error: "Login yoki parol noto'g'ri!" };
     };
 
-    // Imtihon topshiruvchi uchun tabel raqam orqali kirish (FaceID bilan)
     const loginByTabel = (tabelId, workerData) => {
         const examUser = {
             id: `exam_${tabelId}`,
@@ -101,46 +205,43 @@ export function AuthProvider({ children }) {
             role: 'exam_taker',
             tabelId: tabelId,
             workerData: workerData,
+            permissions: ROLES.exam_taker.defaultPermissions,
         };
         setCurrentUser(examUser);
-        // Imtihon topshiruvchi uchun sessiya saqlamaymiz (har safar yangi kirish)
         return { success: true, user: examUser };
     };
 
-    // Chiqish
     const logout = () => {
         setCurrentUser(null);
         localStorage.removeItem('oquv_session');
     };
 
-    // Yangi foydalanuvchi yaratish (faqat admin)
     const createUser = (userData) => {
         if (currentUser?.role !== 'admin') {
             return { success: false, error: "Ruxsat yo'q!" };
         }
 
-        // Username takrorlanmasligini tekshirish
         if (users.some(u => u.username === userData.username)) {
             return { success: false, error: "Bu login allaqachon mavjud!" };
         }
 
+        const role = ROLES[userData.role];
         const newUser = {
             id: Date.now(),
             ...userData,
             avatar: null,
+            permissions: userData.permissions || (role ? { ...role.defaultPermissions } : {}),
         };
 
         setUsers(prev => [...prev, newUser]);
         return { success: true, user: newUser };
     };
 
-    // Foydalanuvchini tahrirlash
     const updateUser = (userId, updates) => {
         if (currentUser?.role !== 'admin') {
             return { success: false, error: "Ruxsat yo'q!" };
         }
 
-        // Username tekshirish (boshqa foydalanuvchida bormi)
         if (updates.username) {
             const existing = users.find(u => u.username === updates.username && u.id !== userId);
             if (existing) {
@@ -148,17 +249,24 @@ export function AuthProvider({ children }) {
             }
         }
 
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+        setUsers(prev => prev.map(u => {
+            if (u.id === userId) {
+                const updated = { ...u, ...updates };
+                if (userId === currentUser.id) {
+                    setCurrentUser(updated);
+                }
+                return updated;
+            }
+            return u;
+        }));
         return { success: true };
     };
 
-    // Foydalanuvchini o'chirish
     const deleteUser = (userId) => {
         if (currentUser?.role !== 'admin') {
             return { success: false, error: "Ruxsat yo'q!" };
         }
 
-        // Admin o'zini o'chira olmaydi
         if (userId === currentUser.id) {
             return { success: false, error: "O'zingizni o'chira olmaysiz!" };
         }
@@ -167,11 +275,19 @@ export function AuthProvider({ children }) {
         return { success: true };
     };
 
-    // Foydalanuvchining ruxsatlarini tekshirish
-    const hasPermission = (permission) => {
+    const hasPermission = (permission, type = 'view') => {
         if (!currentUser) return false;
+
+        if (currentUser.permissions && typeof currentUser.permissions === 'object' && !Array.isArray(currentUser.permissions)) {
+            return currentUser.permissions[permission]?.[type] === true;
+        }
+
+        if (Array.isArray(currentUser.permissions)) {
+            return currentUser.permissions.includes(permission);
+        }
+
         const role = ROLES[currentUser.role];
-        return role?.permissions.includes(permission) || false;
+        return role?.defaultPermissions?.[permission]?.[type] === true;
     };
 
     const value = {
@@ -186,6 +302,7 @@ export function AuthProvider({ children }) {
         deleteUser,
         hasPermission,
         ROLES,
+        ALL_PERMISSIONS,
     };
 
     return (

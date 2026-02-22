@@ -3,6 +3,7 @@ import React from 'react';
 import { LayoutDashboard, BookOpen, GraduationCap, FileBarChart, Users, ChevronLeft, ChevronRight, Shield, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuth, ROLES } from '../../contexts/AuthContext';
+import { RoleIcon } from '../ui/RoleIcon';
 
 const allNavItems = [
     { name: 'Asosiy', path: '/', icon: <LayoutDashboard size={20} />, permission: 'dashboard' },
@@ -35,8 +36,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm font-semibold truncate">{currentUser.fullName}</p>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-xs">{role?.icon}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <RoleIcon roleKey={currentUser.role} size={12} variant="icon" />
                                         <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{role?.label}</span>
                                     </div>
                                 </div>

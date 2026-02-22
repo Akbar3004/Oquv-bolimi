@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth, ROLES } from '../contexts/AuthContext';
+import ReactDOM from 'react-dom';
+import { useAuth, ROLES, ALL_PERMISSIONS } from '../contexts/AuthContext';
+import { RoleIcon, PermIcon } from '../components/ui/RoleIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     UserPlus, Pencil, Trash2, X, Eye, EyeOff, Shield, Search,
-    User, KeyRound, AlertCircle, CheckCircle, ChevronDown
+    User, KeyRound, AlertCircle, CheckCircle, ChevronDown, EyeIcon, PenLine
 } from 'lucide-react';
 
 export default function AdminUsers() {
@@ -14,7 +16,6 @@ export default function AdminUsers() {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [notification, setNotification] = useState(null);
 
-    // Faqat admin ko'rishi mumkin
     if (currentUser?.role !== 'admin') {
         return (
             <div className="flex items-center justify-center h-96">
@@ -69,7 +70,19 @@ export default function AdminUsers() {
         return null;
     };
 
-    // Filtrlash (admin o'zini ko'radi lekin o'chira olmaydi)
+    const getPermissionSummary = (user) => {
+        const perms = user.permissions;
+        if (!perms || typeof perms !== 'object') return [];
+        return Object.entries(perms)
+            .filter(([, val]) => val.view || val.edit)
+            .map(([key, val]) => ({
+                key,
+                label: ALL_PERMISSIONS[key]?.label,
+                view: val.view,
+                edit: val.edit,
+            }));
+    };
+
     const filteredUsers = users.filter(u =>
         u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,8 +99,8 @@ export default function AdminUsers() {
                         animate={{ opacity: 1, y: 0, x: '-50%' }}
                         exit={{ opacity: 0, y: -20 }}
                         className={`fixed top-4 left-1/2 z-[100] flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${notification.type === 'error'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-green-500 text-white'
+                            ? 'bg-red-500 text-white'
+                            : 'bg-green-500 text-white'
                             }`}
                     >
                         {notification.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
@@ -130,14 +143,12 @@ export default function AdminUsers() {
             </div>
 
             {/* Rollar Haqida Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {Object.entries(ROLES).filter(([key]) => key !== 'exam_taker').map(([key, role]) => {
                     const count = users.filter(u => u.role === key).length;
                     return (
                         <div key={key} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-4 flex items-center gap-3">
-                            <div className={`w-10 h-10 bg-gradient-to-br ${role.color} rounded-lg flex items-center justify-center text-lg shadow-sm`}>
-                                {role.icon}
-                            </div>
+                            <RoleIcon roleKey={key} size={22} variant="badge" />
                             <div>
                                 <p className="text-xs text-[hsl(var(--muted-foreground))]">{role.label}</p>
                                 <p className="text-lg font-bold">{count} nafar</p>
@@ -164,6 +175,7 @@ export default function AdminUsers() {
                         <tbody>
                             {filteredUsers.map((user, index) => {
                                 const role = ROLES[user.role];
+                                const permSummary = getPermissionSummary(user);
                                 return (
                                     <motion.tr
                                         key={user.id}
@@ -193,19 +205,28 @@ export default function AdminUsers() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-lg">{role?.icon}</span>
-                                                <span className={`text-xs font-medium px-2 py-1 rounded-full bg-gradient-to-r ${role?.color || ''} bg-clip-text text-transparent`}>
-                                                    {role?.label}
-                                                </span>
+                                                <RoleIcon roleKey={user.role} size={16} variant="flat" />
+                                                <span className="text-xs font-medium">{role?.label}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-wrap gap-1">
-                                                {role?.permissions.map(p => (
-                                                    <span key={p} className="text-[10px] px-1.5 py-0.5 bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] rounded">
-                                                        {p}
+                                                {permSummary.map(p => (
+                                                    <span
+                                                        key={p.key}
+                                                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 ${p.edit
+                                                            ? 'bg-green-500/15 text-green-400 border border-green-500/20'
+                                                            : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                                            }`}
+                                                        title={p.edit ? 'Ko\'rish + Tahrirlash' : 'Faqat ko\'rish'}
+                                                    >
+                                                        <PermIcon permKey={p.key} size={10} variant="icon" />
+                                                        {p.label}
                                                     </span>
                                                 ))}
+                                                {permSummary.length === 0 && (
+                                                    <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -280,31 +301,68 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
         username: '',
         password: '',
         role: 'teacher',
+        permissions: {},
     });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
-    // Form ma'lumotlarini yangilash
     React.useEffect(() => {
         if (editingUser) {
             setFormData({
                 fullName: editingUser.fullName,
                 username: editingUser.username,
-                password: '', // Parolni ko'rsatmaymiz
+                password: '',
                 role: editingUser.role,
+                permissions: editingUser.permissions || ROLES[editingUser.role]?.defaultPermissions || {},
             });
         } else {
+            const defaultRole = 'teacher';
             setFormData({
                 fullName: '',
                 username: '',
                 password: '',
-                role: 'teacher',
+                role: defaultRole,
+                permissions: { ...ROLES[defaultRole].defaultPermissions },
             });
         }
         setError('');
         setShowPassword(false);
+        setRoleDropdownOpen(false);
     }, [editingUser, isOpen]);
+
+    const handleRoleChange = (roleKey) => {
+        setFormData(f => ({
+            ...f,
+            role: roleKey,
+            permissions: { ...ROLES[roleKey].defaultPermissions },
+        }));
+        setRoleDropdownOpen(false);
+    };
+
+    const togglePermission = (permKey, type) => {
+        setFormData(f => {
+            const perms = { ...f.permissions };
+            if (!perms[permKey]) {
+                perms[permKey] = { view: false, edit: false };
+            }
+            perms[permKey] = { ...perms[permKey] };
+
+            if (type === 'view') {
+                perms[permKey].view = !perms[permKey].view;
+                if (!perms[permKey].view) {
+                    perms[permKey].edit = false;
+                }
+            } else if (type === 'edit') {
+                perms[permKey].edit = !perms[permKey].edit;
+                if (perms[permKey].edit) {
+                    perms[permKey].view = true;
+                }
+            }
+
+            return { ...f, permissions: perms };
+        });
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -322,10 +380,9 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
             return;
         }
 
-        // Saqlash
         const saveData = { ...formData };
         if (editingUser && !saveData.password) {
-            delete saveData.password; // Bo'sh parolni yubormaymiz
+            delete saveData.password;
         }
 
         const errorMsg = onSave(saveData);
@@ -339,24 +396,21 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
 
     if (!isOpen) return null;
 
-    return (
+    return ReactDOM.createPortal(
         <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
             >
                 <motion.div
-                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                    className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] flex flex-col"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Modal Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-[hsl(var(--border))]">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-[hsl(var(--border))] shrink-0">
                         <h2 className="text-lg font-bold flex items-center gap-2">
                             {editingUser ? <Pencil className="w-5 h-5 text-blue-500" /> : <UserPlus className="w-5 h-5 text-green-500" />}
                             {editingUser ? "Foydalanuvchini Tahrirlash" : "Yangi Foydalanuvchi"}
@@ -366,8 +420,8 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
                         </button>
                     </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                    {/* Scrollable Form */}
+                    <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
                         {/* Error */}
                         <AnimatePresence>
                             {error && (
@@ -377,7 +431,7 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
                                     exit={{ opacity: 0, height: 0 }}
                                     className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm"
                                 >
-                                    <AlertCircle className="w-4 h-4" />
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
                                     {error}
                                 </motion.div>
                             )}
@@ -453,7 +507,7 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
                                     className="w-full flex items-center justify-between px-4 py-3 bg-[hsl(var(--secondary)/0.5)] border border-[hsl(var(--border))] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <span className="text-lg">{selectedRole?.icon}</span>
+                                        <RoleIcon roleKey={formData.role} size={18} variant="badge" />
                                         <div className="text-left">
                                             <p className="font-medium text-sm">{selectedRole?.label}</p>
                                             <p className="text-xs text-[hsl(var(--muted-foreground))]">{selectedRole?.description}</p>
@@ -474,25 +528,83 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
                                                 <button
                                                     key={key}
                                                     type="button"
-                                                    onClick={() => {
-                                                        setFormData(f => ({ ...f, role: key }));
-                                                        setRoleDropdownOpen(false);
-                                                    }}
+                                                    onClick={() => handleRoleChange(key)}
                                                     className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[hsl(var(--secondary))] transition-colors text-left ${formData.role === key ? 'bg-[hsl(var(--secondary)/0.5)]' : ''}`}
                                                 >
-                                                    <span className="text-lg">{role.icon}</span>
-                                                    <div>
+                                                    <RoleIcon roleKey={key} size={16} variant="badge" />
+                                                    <div className="flex-1">
                                                         <p className="font-medium text-sm">{role.label}</p>
                                                         <p className="text-xs text-[hsl(var(--muted-foreground))]">{role.description}</p>
                                                     </div>
                                                     {formData.role === key && (
-                                                        <CheckCircle className="w-4 h-4 text-green-500 ml-auto" />
+                                                        <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
                                                     )}
                                                 </button>
                                             ))}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
+                            </div>
+                            <p className="text-[11px] text-[hsl(var(--muted-foreground))] flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                Rol tanlaganingizda standart ruxsatlar o'rnatiladi. Keyin quyida alohida sozlashingiz mumkin.
+                            </p>
+                        </div>
+
+                        {/* ============ RUXSATLAR PANELI ============ */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider flex items-center gap-1.5">
+                                    <Shield className="w-3.5 h-3.5" />
+                                    Ruxsatlar (Menyular)
+                                </label>
+                                <div className="flex items-center gap-3 text-[10px] text-[hsl(var(--muted-foreground))]">
+                                    <span className="flex items-center gap-1"><EyeIcon className="w-3 h-3" /> Ko'rish</span>
+                                    <span className="flex items-center gap-1"><PenLine className="w-3 h-3" /> Tahrirlash</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-[hsl(var(--secondary)/0.3)] border border-[hsl(var(--border))] rounded-xl overflow-hidden divide-y divide-[hsl(var(--border)/0.5)]">
+                                {Object.entries(ALL_PERMISSIONS).map(([permKey, perm]) => {
+                                    const currentPerm = formData.permissions?.[permKey] || { view: false, edit: false };
+                                    return (
+                                        <div key={permKey} className="flex items-center justify-between px-4 py-3 hover:bg-[hsl(var(--secondary)/0.3)] transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <PermIcon permKey={permKey} size={18} variant="badge" />
+                                                <div>
+                                                    <p className="text-sm font-medium">{perm.label}</p>
+                                                    <p className="text-[11px] text-[hsl(var(--muted-foreground))]">{perm.description}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePermission(permKey, 'view')}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${currentPerm.view
+                                                        ? 'bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm shadow-blue-500/10'
+                                                        : 'bg-[hsl(var(--secondary)/0.5)] text-[hsl(var(--muted-foreground))] border-transparent hover:border-[hsl(var(--border))]'
+                                                        }`}
+                                                    title="Ko'rish ruxsati"
+                                                >
+                                                    <EyeIcon className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline">Ko'rish</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => togglePermission(permKey, 'edit')}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${currentPerm.edit
+                                                        ? 'bg-green-500/15 text-green-400 border-green-500/30 shadow-sm shadow-green-500/10'
+                                                        : 'bg-[hsl(var(--secondary)/0.5)] text-[hsl(var(--muted-foreground))] border-transparent hover:border-[hsl(var(--border))]'
+                                                        }`}
+                                                    title="Tahrirlash ruxsati"
+                                                >
+                                                    <PenLine className="w-3.5 h-3.5" />
+                                                    <span className="hidden sm:inline">Tahrir</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -515,7 +627,8 @@ function UserFormModal({ isOpen, onClose, onSave, editingUser }) {
                         </div>
                     </form>
                 </motion.div>
-            </motion.div>
-        </AnimatePresence>
+            </div>
+        </AnimatePresence>,
+        document.body
     );
 }
