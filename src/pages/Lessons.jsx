@@ -260,6 +260,10 @@ export default function Lessons() {
         setEditingPlan(null);
     };
 
+    const handleImportPlan = (planData) => {
+        setAnnualPlans(prev => [...prev, planData]);
+    };
+
     const handleNavigateToAttendance = (lesson) => {
         setSelectedLessonForAttendance(lesson);
         setActiveTab('attendance');
@@ -368,6 +372,7 @@ export default function Lessons() {
                                     onView={handleViewPlan}
                                     onEdit={handleEditPlan}
                                     onDelete={handleDeletePlan}
+                                    onImport={handleImportPlan}
                                 />
                             )}
                             {annualPlanView === 'editor' && (
