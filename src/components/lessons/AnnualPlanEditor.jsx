@@ -95,6 +95,10 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
         consultant: '',
         lessons: createEmptyLessons(2),
         titlePage: JSON.parse(JSON.stringify(DEFAULT_TITLE_PAGE)),
+        signatures: [
+            { title: 'Tuzuvchi: Bosh mexanik:', name: 'Saqaliyev.I' },
+            { title: 'Konsultant: O\'quv sinf boshlig\'i:', name: 'Israilov.I.A.' },
+        ],
     });
     const [workshopInput, setWorkshopInput] = useState('');
     const [isSaved, setIsSaved] = useState(false);
@@ -114,6 +118,10 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                 consultant: plan.consultant || '',
                 lessons: plan.lessons && plan.lessons.length === 48 ? plan.lessons : createEmptyLessons(plan.hourPerLesson || 2),
                 titlePage: plan.titlePage || JSON.parse(JSON.stringify(DEFAULT_TITLE_PAGE)),
+                signatures: plan.signatures || [
+                    { title: 'Tuzuvchi: Bosh mexanik:', name: plan.author || '' },
+                    { title: 'Konsultant: O\'quv sinf boshlig\'i:', name: plan.consultant || '' },
+                ],
             });
         }
     }, [plan]);
@@ -398,21 +406,64 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                                 </div>
                             </div>
 
-                            {/* Tuzuvchi va Konsultant */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="p-4 bg-[hsl(var(--secondary)/0.3)] border border-[hsl(var(--border))] rounded-xl">
-                                    <div className="flex items-center gap-2 mb-3">
+                            {/* Imzolar (Tuzuvchi, TCHNUK va h.k.) */}
+                            <div className="p-4 bg-[hsl(var(--secondary)/0.3)] border border-[hsl(var(--border))] rounded-xl space-y-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
                                         <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
-                                        <h4 className="font-bold text-xs uppercase tracking-wider text-teal-400">Tuzuvchi</h4>
+                                        <h4 className="font-bold text-xs uppercase tracking-wider text-teal-400">Pastdagi imzolar</h4>
                                     </div>
-                                    <EditField label="F.I.SH" value={formData.author} onChange={(v) => setFormData({ ...formData, author: v })} placeholder="Saqaliyev I." />
+                                    <button
+                                        onClick={() => {
+                                            const newSigs = [...formData.signatures, { title: '', name: '' }];
+                                            setFormData({ ...formData, signatures: newSigs });
+                                        }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 rounded-lg text-xs font-medium hover:bg-teal-500/20 transition-colors"
+                                    >
+                                        <Plus size={12} /> Qo'shish
+                                    </button>
                                 </div>
-                                <div className="p-4 bg-[hsl(var(--secondary)/0.3)] border border-[hsl(var(--border))] rounded-xl">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
-                                        <h4 className="font-bold text-xs uppercase tracking-wider text-teal-400">Konsultant</h4>
-                                    </div>
-                                    <EditField label="F.I.SH" value={formData.consultant} onChange={(v) => setFormData({ ...formData, consultant: v })} placeholder="Israilov I.A." />
+                                <div className="space-y-3">
+                                    {formData.signatures.map((sig, index) => (
+                                        <div key={index} className="flex gap-3 items-start p-3 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl group">
+                                            <span className="w-6 h-6 flex items-center justify-center bg-teal-500/10 text-teal-400 rounded-md text-xs font-bold shrink-0 mt-5">
+                                                {index + 1}
+                                            </span>
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <EditField
+                                                    label="Lavozim"
+                                                    value={sig.title}
+                                                    onChange={(v) => {
+                                                        const newSigs = [...formData.signatures];
+                                                        newSigs[index] = { ...newSigs[index], title: v };
+                                                        setFormData({ ...formData, signatures: newSigs });
+                                                    }}
+                                                    placeholder="Masalan: Tuzuvchi: Bosh mexanik:"
+                                                />
+                                                <EditField
+                                                    label="F.I.SH"
+                                                    value={sig.name}
+                                                    onChange={(v) => {
+                                                        const newSigs = [...formData.signatures];
+                                                        newSigs[index] = { ...newSigs[index], name: v };
+                                                        setFormData({ ...formData, signatures: newSigs });
+                                                    }}
+                                                    placeholder="Masalan: Saqaliyev.I"
+                                                />
+                                            </div>
+                                            {formData.signatures.length > 1 && (
+                                                <button
+                                                    onClick={() => {
+                                                        const newSigs = formData.signatures.filter((_, i) => i !== index);
+                                                        setFormData({ ...formData, signatures: newSigs });
+                                                    }}
+                                                    className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-5"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -468,11 +519,11 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                                     <div className="flex gap-2 mb-2">
                                         <input type="text" value={workshopInput} onChange={(e) => setWorkshopInput(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addWorkshop(); } }}
-                                            className="flex-1 px-3 py-2 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                                            placeholder="Sex raqamini kiriting va Enter bosing..." />
+                                            className="flex-1 min-w-0 px-3 py-2.5 bg-[hsl(var(--secondary))] border border-[hsl(var(--border))] rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                            placeholder="Sex raqamini kiriting..." />
                                         <button type="button" onClick={addWorkshop}
-                                            className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl text-sm font-medium hover:bg-indigo-500/20 transition-colors">
-                                            <Plus size={16} />
+                                            className="shrink-0 px-4 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1.5">
+                                            <Plus size={16} /> Qo'shish
                                         </button>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">

@@ -76,6 +76,10 @@ const SAMPLE_ANNUAL_PLAN = {
             { title: 'O\'qituvchi:', name: '' },
         ],
     },
+    signatures: [
+        { title: 'Tuzuvchi: Bosh mexanik:', name: 'Saqaliyev.I' },
+        { title: 'Konsultant: O\'quv sinf boshlig\'i:', name: 'Israilov.I.A.' },
+    ],
     lessons: (() => {
         const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
         const topics = [
