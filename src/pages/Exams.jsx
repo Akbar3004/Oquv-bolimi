@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import ExamResultPDF from '../components/ExamResultPDF';
+import TestQuestionsPDF from '../components/TestQuestionsPDF';
 import { examStore } from '../utils/examStore';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -144,11 +145,41 @@ function QuestionsTab() {
         }
     };
 
-    // Tanlangan to'plamni export qilish
-    const handleExportBank = (bank) => {
+    // Tanlangan to'plamni Excel export qilish
+    const handleExportExcel = (bank) => {
         if (!bank.questions?.length) return alert("Bu to'plamda savollar yo'q!");
         examStore.exportTestQuestions(bank.questions, bank.name);
     };
+
+    // Tanlangan to'plamni PDF export qilish
+    const handleExportPDF = async (bank) => {
+        if (!bank.questions?.length) return alert("Bu to'plamda savollar yo'q!");
+        try {
+            const blob = await pdf(
+                <TestQuestionsPDF
+                    bankName={bank.name}
+                    seh={bank.seh}
+                    lavozim={bank.lavozim}
+                    razryad={bank.razryad}
+                    questions={bank.questions}
+                />
+            ).toBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${bank.name.replace(/\s+/g, '_')}_Savollar.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('PDF export xatolik:', err);
+            alert('PDF yaratishda xatolik yuz berdi!');
+        }
+    };
+
+    // Export dropdown uchun state
+    const [exportDropdownId, setExportDropdownId] = useState(null);
 
     return (
         <div className="space-y-4">
@@ -237,10 +268,26 @@ function QuestionsTab() {
                                         className="p-2 hover:bg-[hsl(var(--secondary))] rounded-lg transition-colors" title="Savollarni ko'rish">
                                         {expandedBank === bank.id ? <ChevronUp size={18} /> : <Eye size={18} />}
                                     </button>
-                                    <button onClick={() => handleExportBank(bank)}
-                                        className="p-2 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors" title="Export (Excel)">
-                                        <FileDown size={18} />
-                                    </button>
+                                    <div className="relative">
+                                        <button onClick={(e) => { e.stopPropagation(); setExportDropdownId(exportDropdownId === bank.id ? null : bank.id); }}
+                                            className="p-2 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors" title="Export">
+                                            <FileDown size={18} />
+                                        </button>
+                                        {exportDropdownId === bank.id && (
+                                            <div className="absolute right-0 top-full mt-1 z-50 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg shadow-xl py-1 min-w-[160px]">
+                                                <button onClick={(e) => { e.stopPropagation(); handleExportExcel(bank); setExportDropdownId(null); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[hsl(var(--accent))] transition-colors text-left">
+                                                    <FileDown size={16} className="text-green-600" />
+                                                    <span>Excel (.xlsx)</span>
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleExportPDF(bank); setExportDropdownId(null); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[hsl(var(--accent))] transition-colors text-left">
+                                                    <FileText size={16} className="text-red-500" />
+                                                    <span>PDF (.pdf)</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                     <button onClick={() => handleEdit(bank)}
                                         className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg transition-colors" title="Tahrirlash">
                                         <Edit3 size={18} />
