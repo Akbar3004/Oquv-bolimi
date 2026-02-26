@@ -248,7 +248,7 @@ function QuestionsTab() {
             ) : (
                 <div className="grid gap-4">
                     {banks.map(bank => (
-                        <div key={bank.id} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl overflow-hidden shadow-sm">
+                        <div key={bank.id} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl shadow-sm relative">
                             <div className="p-5 flex items-center justify-between">
                                 <div className="flex items-center gap-4 flex-1 min-w-0">
                                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0">
