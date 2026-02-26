@@ -158,6 +158,19 @@ export function AuthProvider({ children }) {
                     migrated = [DEFAULT_USERS[0], ...migrated.filter(u => u.username !== 'admin')];
                 }
 
+                // Duplikat ID larni tuzatish — har biriga noyob ID berish
+                const seenIds = new Set();
+                migrated = migrated.map((u, idx) => {
+                    if (seenIds.has(u.id) || u.id === undefined || u.id === null) {
+                        // Admin uchun id=1 saqlash, boshqalarga noyob id berish
+                        const newId = u.username === 'admin' ? 1 : Date.now() + idx + 1;
+                        console.warn(`[AuthContext] Duplikat ID tuzatildi: ${u.fullName} (${u.id} → ${newId})`);
+                        u = { ...u, id: newId };
+                    }
+                    seenIds.add(u.id);
+                    return u;
+                });
+
                 return migrated;
             } catch (e) {
                 console.error('localStorage parse xatosi, reset qilinmoqda:', e);
@@ -226,11 +239,13 @@ export function AuthProvider({ children }) {
         }
 
         const role = ROLES[userData.role];
+        // id ni oxirgi qilib qo'yamiz — userData uni qayta yoza olmasligi uchun
+        const { id: _ignoredId, ...cleanUserData } = userData;
         const newUser = {
-            id: Date.now(),
-            ...userData,
+            ...cleanUserData,
             avatar: null,
             permissions: userData.permissions || (role ? { ...role.defaultPermissions } : {}),
+            id: Date.now(),
         };
 
         setUsers(prev => [...prev, newUser]);
