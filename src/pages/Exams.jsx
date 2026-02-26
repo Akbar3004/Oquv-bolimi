@@ -486,28 +486,70 @@ function QuestionBankModal({ bank, onSave, onClose }) {
 
 // ==================== 2. TAYINLASH ====================
 function AssignTab() {
-    const [tabelId, setTabelId] = useState('');
-    const [foundWorker, setFoundWorker] = useState(null);
+    const [selectedSeh, setSelectedSeh] = useState('');
+    const [selectedWorkers, setSelectedWorkers] = useState([]);
     const [examType, setExamType] = useState('');
     const [selectedBank, setSelectedBank] = useState(null);
     const [questionCount, setQuestionCount] = useState(20);
-    const [matchingBanks, setMatchingBanks] = useState([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [searchText, setSearchText] = useState('');
 
-    const handleTabelSearch = () => {
-        setError(''); setSuccess(''); setFoundWorker(null); setMatchingBanks([]);
-        if (!tabelId.trim()) return setError("Tabel raqamni kiriting!");
-        const worker = KNOWN_WORKERS.find(w => w.tabelId === tabelId.trim());
-        if (!worker) return setError("Bu tabel raqam bo'yicha xodim topilmadi!");
-        setFoundWorker(worker);
-        const banks = examStore.findMatchingBanks(worker.sex, worker.lavozim, worker.razryad);
-        setMatchingBanks(banks);
-        if (banks.length > 0) setSelectedBank(banks[0]);
+    const SEHLAR = ['1-Sex', '2-Sex', '3-Sex', 'Ofis'];
+
+    // Tanlangan sehdagi xodimlar
+    const filteredWorkers = useMemo(() => {
+        let workers = KNOWN_WORKERS;
+        if (selectedSeh) {
+            workers = workers.filter(w => w.sex === selectedSeh);
+        }
+        if (searchText.trim()) {
+            const q = searchText.toLowerCase();
+            workers = workers.filter(w =>
+                w.name.toLowerCase().includes(q) ||
+                w.tabelId.includes(q) ||
+                w.lavozim.toLowerCase().includes(q)
+            );
+        }
+        return workers;
+    }, [selectedSeh, searchText]);
+
+    // Xodimni tanlash/olib tashlash
+    const toggleWorker = (worker) => {
+        setSelectedWorkers(prev => {
+            const exists = prev.find(w => w.id === worker.id);
+            if (exists) return prev.filter(w => w.id !== worker.id);
+            return [...prev, worker];
+        });
+        setError('');
     };
 
+    // Hammasini tanlash/olib tashlash
+    const toggleAll = () => {
+        if (selectedWorkers.length === filteredWorkers.length && filteredWorkers.length > 0) {
+            setSelectedWorkers([]);
+        } else {
+            setSelectedWorkers([...filteredWorkers]);
+        }
+    };
+
+    // Mos test to'plamlarini topish (birinchi tanlangan xodim asosida)
+    const matchingBanks = useMemo(() => {
+        if (selectedWorkers.length === 0) return [];
+        const first = selectedWorkers[0];
+        return examStore.findMatchingBanks(first.sex, first.lavozim, first.razryad);
+    }, [selectedWorkers]);
+
+    // Test to'plami o'zgarganda
+    useEffect(() => {
+        if (matchingBanks.length > 0 && !selectedBank) {
+            setSelectedBank(matchingBanks[0]);
+        }
+    }, [matchingBanks]);
+
+    // Tayinlash
     const handleAssign = () => {
-        if (!foundWorker) return setError("Avval xodimni toping!");
+        if (selectedWorkers.length === 0) return setError("Kamida 1 ta xodim tanlang!");
         if (!examType) return setError("Imtihon turini tanlang!");
         if (!selectedBank) return setError("Test to'plamini tanlang!");
         if (questionCount < 1) return setError("Savollar sonini kiriting!");
@@ -515,23 +557,26 @@ function AssignTab() {
         const maxQ = selectedBank.questions?.length || 0;
         if (questionCount > maxQ) return setError(`Bu to'plamda faqat ${maxQ} ta savol bor!`);
 
-        examStore.createActiveExam({
-            worker: { ...foundWorker },
-            examType,
-            questions: selectedBank.questions,
-            questionCount,
-            bankName: selectedBank.name,
+        selectedWorkers.forEach(worker => {
+            examStore.createActiveExam({
+                worker: { ...worker },
+                examType,
+                questions: selectedBank.questions,
+                questionCount,
+                bankName: selectedBank.name,
+            });
         });
 
-        setSuccess(`${foundWorker.name} uchun "${examType}" imtihoni tayinlandi!`);
-        setTabelId(''); setFoundWorker(null); setExamType(''); setSelectedBank(null); setQuestionCount(20);
-        setTimeout(() => setSuccess(''), 4000);
+        const names = selectedWorkers.map(w => w.name).join(', ');
+        setSuccess(`${selectedWorkers.length} ta xodim uchun "${examType}" imtihoni tayinlandi: ${names}`);
+        setSelectedWorkers([]); setExamType(''); setSelectedBank(null); setQuestionCount(20);
+        setTimeout(() => setSuccess(''), 5000);
     };
 
     const inputCls = "w-full px-3 py-2.5 bg-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]";
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
             {success && (
                 <div className="flex items-center gap-3 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 text-sm animate-in fade-in">
                     <CheckCircle size={20} /> {success}
@@ -543,35 +588,106 @@ function AssignTab() {
                 </div>
             )}
 
-            {/* Tabel raqam */}
+            {/* 1-QADAM: Seh tanlash va xodimlar */}
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Hash size={20} /> Xodimni Topish</h3>
-                <div className="flex gap-3">
-                    <input value={tabelId} onChange={e => { setTabelId(e.target.value); setError(''); }}
-                        className={`${inputCls} flex-1 font-mono text-center text-lg tracking-wider`}
-                        placeholder="Tabel raqamni kiriting..." onKeyDown={e => e.key === 'Enter' && handleTabelSearch()} />
-                    <button onClick={handleTabelSearch}
-                        className="px-6 py-2.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:opacity-90 flex items-center gap-2">
-                        <Search size={18} /> Qidirish
-                    </button>
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <UserCheck size={20} /> 1. Xodimlarni Tanlash
+                </h3>
+
+                {/* Seh tanlash */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {SEHLAR.map(s => (
+                        <button key={s} onClick={() => { setSelectedSeh(selectedSeh === s ? '' : s); setSelectedWorkers([]); }}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${selectedSeh === s
+                                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.1)] text-[hsl(var(--primary))]'
+                                    : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary)/0.5)]'
+                                }`}>
+                            <MapPin size={14} className="inline mr-1" /> {s}
+                        </button>
+                    ))}
                 </div>
+
+                {/* Qidirish */}
+                {selectedSeh && (
+                    <>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="relative flex-1">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
+                                <input value={searchText} onChange={e => setSearchText(e.target.value)}
+                                    className={`${inputCls} pl-10`}
+                                    placeholder="Ism, tabel raqam yoki lavozim bo'yicha qidiring..." />
+                            </div>
+                            <button onClick={toggleAll}
+                                className={`px-4 py-2.5 rounded-lg text-sm font-medium border transition-all whitespace-nowrap ${selectedWorkers.length === filteredWorkers.length && filteredWorkers.length > 0
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))]'
+                                    }`}>
+                                {selectedWorkers.length === filteredWorkers.length && filteredWorkers.length > 0
+                                    ? 'Barchasini Olib Tashlash'
+                                    : `Barchasini Tanlash (${filteredWorkers.length})`}
+                            </button>
+                        </div>
+
+                        {/* Xodimlar ro'yxati */}
+                        {filteredWorkers.length === 0 ? (
+                            <p className="text-sm text-[hsl(var(--muted-foreground))] py-4 text-center">
+                                Bu sehda xodim topilmadi
+                            </p>
+                        ) : (
+                            <div className="max-h-64 overflow-y-auto rounded-lg border border-[hsl(var(--border))] divide-y divide-[hsl(var(--border))]">
+                                {filteredWorkers.map(worker => {
+                                    const isSelected = selectedWorkers.some(w => w.id === worker.id);
+                                    return (
+                                        <label key={worker.id}
+                                            className={`flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors ${isSelected
+                                                    ? 'bg-blue-50 dark:bg-blue-900/20'
+                                                    : 'hover:bg-[hsl(var(--accent))]'
+                                                }`}>
+                                            <input type="checkbox" checked={isSelected} onChange={() => toggleWorker(worker)}
+                                                className="w-4 h-4 accent-blue-600 rounded" />
+                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                                {worker.name.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-sm truncate">{worker.name}</p>
+                                                <div className="flex gap-3 text-xs text-[hsl(var(--muted-foreground))]">
+                                                    <span className="font-mono">{worker.tabelId}</span>
+                                                    <span>{worker.lavozim}</span>
+                                                    <span>{worker.razryad}</span>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {selectedWorkers.length > 0 && (
+                            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                                ✓ {selectedWorkers.length} ta xodim tanlandi
+                            </p>
+                        )}
+                    </>
+                )}
             </div>
 
-            {/* Topilgan xodim */}
-            {foundWorker && (
+            {/* 2-QADAM: Imtihon sozlamalari */}
+            {selectedWorkers.length > 0 && (
                 <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-6 shadow-sm animate-in fade-in slide-in-from-bottom-2 space-y-5">
-                    <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shrink-0">
-                            {foundWorker.name.charAt(0)}
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-lg">{foundWorker.name}</h3>
-                            <div className="flex flex-wrap gap-2 mt-1 text-xs">
-                                <span className="flex items-center gap-1"><MapPin size={12} /> {foundWorker.sex}</span>
-                                <span className="flex items-center gap-1"><UserCheck size={12} /> {foundWorker.lavozim}</span>
-                                <span className="flex items-center gap-1"><Award size={12} /> {foundWorker.razryad}</span>
-                            </div>
-                        </div>
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <ClipboardList size={20} /> 2. Imtihon Sozlamalari
+                    </h3>
+
+                    {/* Tanlangan xodimlar oldindan ko'rish */}
+                    <div className="flex flex-wrap gap-2">
+                        {selectedWorkers.map(w => (
+                            <span key={w.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">
+                                {w.name}
+                                <button onClick={() => toggleWorker(w)} className="text-blue-400 hover:text-red-500">
+                                    <X size={12} />
+                                </button>
+                            </span>
+                        ))}
                     </div>
 
                     {/* Imtihon turi */}
@@ -595,7 +711,7 @@ function AssignTab() {
                             Mos Test To'plami ({matchingBanks.length} ta topildi)
                         </label>
                         {matchingBanks.length === 0 ? (
-                            <p className="text-sm text-amber-500 py-2">Bu xodim uchun mos test to'plami topilmadi. Avval "Savollar Bazasi" bo'limida yarating.</p>
+                            <p className="text-sm text-amber-500 py-2">Bu xodim(lar) uchun mos test to'plami topilmadi. Avval "Savollar Bazasi" bo'limida yarating.</p>
                         ) : (
                             <select value={selectedBank?.id || ''} onChange={e => setSelectedBank(matchingBanks.find(b => b.id === e.target.value))} className={inputCls}>
                                 {matchingBanks.map(b => (
@@ -619,7 +735,7 @@ function AssignTab() {
 
                     <button onClick={handleAssign}
                         className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 transition-all">
-                        <Play size={20} /> Imtihonni Tayinlash
+                        <Play size={20} /> {selectedWorkers.length} ta Xodimga Imtihon Tayinlash
                     </button>
                 </div>
             )}
