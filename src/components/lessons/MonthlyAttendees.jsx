@@ -436,7 +436,14 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
                                                 return (
                                                     <tr key={worker.id} className={`border-b border-[hsl(var(--border)/0.5)] transition-colors hover:bg-[hsl(var(--secondary)/0.3)] ${isAny ? 'bg-indigo-500/5' : ''}`}>
                                                         <td className="px-4 py-3 flex flex-col justify-center">
-                                                            <p className={`text-sm font-semibold leading-tight mb-1 ${isAny ? 'text-indigo-400' : ''}`}>{worker.name}</p>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <p className={`text-sm font-semibold leading-tight ${isAny ? 'text-indigo-400' : ''}`}>{worker.name}</p>
+                                                                {wSet.size > 0 && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                                                                        {wSet.size} kun
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] px-1.5 rounded bg-[hsl(var(--background))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] font-mono">T: {worker.tabelId}</span>
                                                                 <span className="text-[10px] px-1.5 rounded bg-[hsl(var(--background))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{worker.sex}</span>
