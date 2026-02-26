@@ -77,19 +77,44 @@ export async function exportPlanToDocx(plan) {
       xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<!--[if gte mso 9]>
 <xml>
   <w:WordDocument>
     <w:View>Print</w:View>
     <w:Zoom>100</w:Zoom>
+    <w:SpellingState>Clean</w:SpellingState>
+    <w:GrammarState>Clean</w:GrammarState>
   </w:WordDocument>
 </xml>
+<xml>
+  <o:OfficeDocumentSettings>
+    <o:AllowPNG/>
+  </o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
 <style>
     @page Section1 {
         size: 841.9pt 595.3pt;
         mso-page-orientation: landscape;
-        margin: 28.35pt 42.55pt 28.35pt 42.55pt;
+        margin: 1cm 1.5cm 1cm 1.5cm;
+        mso-header-margin: 0;
+        mso-footer-margin: 0;
+        mso-paper-source: 0;
     }
-    div.Section1 { page: Section1; }
+    div.Section1 {
+        page: Section1;
+    }
+    @page Section2 {
+        size: 841.9pt 595.3pt;
+        mso-page-orientation: landscape;
+        margin: 1cm 1.5cm 1cm 1.5cm;
+        mso-header-margin: 0;
+        mso-footer-margin: 0;
+        mso-paper-source: 0;
+    }
+    div.Section2 {
+        page: Section2;
+    }
     body {
         font-family: 'Times New Roman', serif;
         font-size: 11pt;
@@ -166,10 +191,10 @@ ${maslaxatchilarRows}
 
 <p style="text-align:center;font-style:italic;font-size:10pt">\u201E${(c.line2 || '').replace(/"/g, '').replace(/\./g, '')}\u201C</p>
 
-<!-- Sahifa uzilishi -->
-<br clear="all" style="page-break-before:always"/>
+</div>
 
-<!-- ==================== DARSLAR JADVALI ==================== -->
+<!-- ==================== DARSLAR JADVALI (Section2) ==================== -->
+<div class="Section2">
 
 <p style="text-align:center;font-size:10pt;font-weight:bold">Yo'nalish: ${plan.direction || ''}</p>
 <br/>
@@ -196,7 +221,7 @@ ${lessonRows}
 <br/><br/>
 
 <!-- Imzolar -->
-<table width="70%" style="border:none">
+<table width="80%" style="border:none">
 ${sigRows}
 </table>
 
