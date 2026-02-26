@@ -9,6 +9,7 @@ import ProtocolGenerator from '../components/lessons/ProtocolGenerator';
 import AnnualPlanList from '../components/lessons/AnnualPlanList';
 import AnnualPlanEditor from '../components/lessons/AnnualPlanEditor';
 import AnnualPlanViewer from '../components/lessons/AnnualPlanViewer';
+import WeeklySchedule from '../components/lessons/WeeklySchedule';
 
 // ===== LocalStorage kalitlari =====
 const STORAGE_KEYS = {
@@ -169,6 +170,7 @@ const SAMPLE_ANNUAL_PLAN = {
 // ===== Tablar konfiguratsiyasi =====
 const TABS = [
     { id: 'annualPlan', label: 'Yillik Reja', icon: ClipboardList, color: 'from-indigo-500 to-blue-600' },
+    { id: 'weeklySchedule', label: 'Haftalik Jadval', icon: Calendar, color: 'from-teal-500 to-cyan-600' },
     { id: 'schedule', label: 'Dars Jadvali', icon: Calendar, color: 'from-blue-500 to-cyan-600' },
     { id: 'topics', label: 'Mavzular', icon: BookOpen, color: 'from-violet-500 to-purple-600' },
     { id: 'attendance', label: 'Qatnashish', icon: Users, color: 'from-emerald-500 to-green-600' },
@@ -390,6 +392,10 @@ export default function Lessons() {
                                 />
                             )}
                         </>
+                    )}
+
+                    {activeTab === 'weeklySchedule' && (
+                        <WeeklySchedule annualPlans={annualPlans} />
                     )}
 
                     {activeTab === 'schedule' && (
