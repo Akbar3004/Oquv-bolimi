@@ -283,19 +283,38 @@ function QuestionsTab() {
     );
 }
 
-// === Savollar bazasi modal (AddWorkshopModal kabi kompakt) ===
+// === Savollar bazasi modal (savollar kiritish bilan) ===
 function QuestionBankModal({ bank, onSave, onClose }) {
     const [name, setName] = useState(bank?.name || '');
     const [seh, setSeh] = useState(bank?.seh || 'Barchasi');
     const [lavozim, setLavozim] = useState(bank?.lavozim || 'Barchasi');
     const [razryad, setRazryad] = useState(bank?.razryad || 'Barchasi');
+    const [questions, setQuestions] = useState(bank?.questions || [{ question: '', options: ['', '', '', ''], correct: 0 }]);
+
+    const addQuestion = () => setQuestions([...questions, { question: '', options: ['', '', '', ''], correct: 0 }]);
+
+    const removeQuestion = (idx) => {
+        if (questions.length <= 1) return;
+        setQuestions(questions.filter((_, i) => i !== idx));
+    };
+
+    const updateQuestion = (idx, field, val) => {
+        const updated = [...questions];
+        if (field === 'question') updated[idx].question = val;
+        else if (field === 'correct') updated[idx].correct = val;
+        else if (field.startsWith('option_')) {
+            const optIdx = parseInt(field.split('_')[1]);
+            updated[idx].options[optIdx] = val;
+        }
+        setQuestions(updated);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!name.trim()) return alert("To'plam nomini kiriting!");
-        // Tahrirlashda eski savollarni saqlab qolish, yangi yaratishda bo'sh
-        const questions = bank?.questions || [];
-        onSave({ name, seh, lavozim, razryad, questions });
+        const validQ = questions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
+        if (validQ.length === 0) return alert("Kamida 1 ta to'liq savol kiriting!");
+        onSave({ name, seh, lavozim, razryad, questions: validQ });
     };
 
     const inputCls = "w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all";
@@ -308,11 +327,11 @@ function QuestionBankModal({ bank, onSave, onClose }) {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                             {bank ? "Test To'plamini Tahrirlash" : "Yangi Test To'plami"}
                         </h2>
@@ -321,61 +340,100 @@ function QuestionBankModal({ bank, onSave, onClose }) {
                         </button>
                     </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Scrollable content */}
+                    <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                        {/* To'plam nomi */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 To'plam Nomi <span className="text-red-500">*</span>
                             </label>
-                            <input type="text" required value={name} onChange={e => setName(e.target.value)}
+                            <input type="text" value={name} onChange={e => setName(e.target.value)}
                                 className={inputCls} placeholder="Masalan: Mashinist asosiy testlari" />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seh</label>
-                            <select value={seh} onChange={e => setSeh(e.target.value)} className={inputCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option>
-                                <option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
-                            </select>
+                        {/* Seh, Lavozim, Razryad */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seh</label>
+                                <select value={seh} onChange={e => setSeh(e.target.value)} className={inputCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option>
+                                    <option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lavozim</label>
+                                <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={inputCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option>Mashinist</option><option>Elektrik</option>
+                                    <option>Payvandchi</option><option>Kadrlar bo'limi</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razryad</label>
+                                <select value={razryad} onChange={e => setRazryad(e.target.value)} className={inputCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option>2-toifa</option><option>3-toifa</option>
+                                    <option>4-toifa</option><option>5-toifa</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lavozim</label>
-                            <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={inputCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option>Mashinist</option><option>Elektrik</option>
-                                <option>Payvandchi</option><option>Kadrlar bo'limi</option>
-                            </select>
+                        {/* Savollar ro'yxati */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Savollar <span className="text-gray-400">({questions.length} ta)</span>
+                                </label>
+                                <button type="button" onClick={addQuestion}
+                                    className="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm">
+                                    <Plus size={14} /> Savol Qo'shish
+                                </button>
+                            </div>
+                            {questions.map((q, qi) => (
+                                <div key={qi} className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Savol #{qi + 1}</span>
+                                        {questions.length > 1 && (
+                                            <button type="button" onClick={() => removeQuestion(qi)}
+                                                className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><Trash2 size={14} /></button>
+                                        )}
+                                    </div>
+                                    <input value={q.question} onChange={e => updateQuestion(qi, 'question', e.target.value)}
+                                        className={inputCls} placeholder="Savol matnini kiriting..." />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {q.options.map((opt, oi) => (
+                                            <div key={oi} className="flex items-center gap-2">
+                                                <input type="radio" name={`correct_${qi}`} checked={q.correct === oi}
+                                                    onChange={() => updateQuestion(qi, 'correct', oi)} className="accent-green-500 w-4 h-4" />
+                                                <input value={opt} onChange={e => updateQuestion(qi, `option_${oi}`, e.target.value)}
+                                                    className={`${inputCls} flex-1`} placeholder={`${String.fromCharCode(65 + oi)} variant`} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razryad</label>
-                            <select value={razryad} onChange={e => setRazryad(e.target.value)} className={inputCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option>2-toifa</option><option>3-toifa</option>
-                                <option>4-toifa</option><option>5-toifa</option>
-                            </select>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button type="button" onClick={onClose}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                Bekor qilish
-                            </button>
-                            <button type="submit"
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow-md">
-                                <Save size={18} /> Saqlash
-                            </button>
-                        </div>
-                    </form>
+                    {/* Footer */}
+                    <div className="flex justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
+                        <button type="button" onClick={onClose}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                            Bekor qilish
+                        </button>
+                        <button type="button" onClick={handleSubmit}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow-md">
+                            <Save size={18} /> Saqlash
+                        </button>
+                    </div>
                 </motion.div>
             </div>
         </AnimatePresence>,
         document.body
     );
 }
+
 
 
 
