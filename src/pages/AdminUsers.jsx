@@ -238,33 +238,37 @@ export default function AdminUsers() {
                                                 >
                                                     <Pencil size={16} />
                                                 </button>
-                                                {user.id !== currentUser.id && (
-                                                    <>
-                                                        {deleteConfirm === user.id ? (
-                                                            <div className="flex items-center gap-1">
-                                                                <button
-                                                                    onClick={() => handleDeleteUser(user.id)}
-                                                                    className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-                                                                >
-                                                                    Ha
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => setDeleteConfirm(null)}
-                                                                    className="px-2 py-1 bg-[hsl(var(--secondary))] text-xs rounded hover:opacity-80 transition-colors"
-                                                                >
-                                                                    Yo'q
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setDeleteConfirm(user.id)}
-                                                                className="p-2 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
-                                                                title="O'chirish"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        )}
-                                                    </>
+                                                {deleteConfirm === user.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user.id)}
+                                                            className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+                                                        >
+                                                            Ha, o'chir
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeleteConfirm(null)}
+                                                            className="px-2 py-1 bg-[hsl(var(--secondary))] text-xs rounded hover:opacity-80 transition-colors"
+                                                        >
+                                                            Yo'q
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (String(user.id) === String(currentUser.id)) {
+                                                                return alert("O'zingizni o'chira olmaysiz!");
+                                                            }
+                                                            setDeleteConfirm(user.id);
+                                                        }}
+                                                        className={`p-2 rounded-lg transition-colors ${String(user.id) === String(currentUser.id)
+                                                                ? 'text-gray-400 cursor-not-allowed opacity-40'
+                                                                : 'hover:bg-red-500/10 text-red-500'
+                                                            }`}
+                                                        title={String(user.id) === String(currentUser.id) ? "O'zingizni o'chira olmaysiz" : "O'chirish"}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
                                                 )}
                                             </div>
                                         </td>
