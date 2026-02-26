@@ -13,6 +13,22 @@ const WEEKDAYS = {
 
 const STORAGE_KEY = 'oquv_monthly_attendees';
 
+function getDatesInMonth(year, monthIndex, weekdayId) {
+    const dates = [];
+    const date = new Date(year, monthIndex, 1);
+    const dayMap = { dushanba: 1, seshanba: 2, chorshanba: 3, payshanba: 4, juma: 5 };
+    const target = dayMap[weekdayId];
+
+    while (date.getDay() !== target) {
+        date.setDate(date.getDate() + 1);
+    }
+    while (date.getMonth() === monthIndex) {
+        dates.push(date.getDate());
+        date.setDate(date.getDate() + 7);
+    }
+    return dates;
+}
+
 // Sexlarni solishtirish uchun yordamchi funksiya
 const extractWorkshopKeys = (str) => {
     if (!str) return [];
@@ -47,7 +63,8 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
     });
 
     const [editingSlot, setEditingSlot] = useState(null); // qaysi slot tahrirlanyapti (id)
-    const [selectedWorkerIds, setSelectedWorkerIds] = useState(new Set());
+    const [selectedWorkerDates, setSelectedWorkerDates] = useState({}); // { workerId: Set([2, 9, 16]) }
+    const [availableDates, setAvailableDates] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaved, setIsSaved] = useState(false);
 
@@ -73,31 +90,108 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
     const openAssignModal = (slot) => {
         setEditingSlot(slot);
         setSearchQuery('');
-        // Shu oy va shu slot uchun oldindan belgilangan xodimlarni yuklash
+
+        // Sanalarni hisoblash (hafta kuni bo'yicha)
+        const plan = getPlanById(slot.planId);
+        const year = plan ? plan.year : new Date().getFullYear();
+        const monthIndex = MONTHS.indexOf(selectedMonth);
+        const dates = getDatesInMonth(year, monthIndex, slot.dayId);
+        setAvailableDates(dates);
+
+        // Shu oy va shu slot uchun xodimlarni yuklash
         const monthData = attendees[selectedMonth] || {};
-        const slotAttendees = monthData[slot.id] || [];
-        setSelectedWorkerIds(new Set(slotAttendees));
-    };
+        const slotAttendees = monthData[slot.id] || {};
 
-    const toggleWorker = (id) => {
-        const newSet = new Set(selectedWorkerIds);
-        if (newSet.has(id)) newSet.delete(id);
-        else newSet.add(id);
-        setSelectedWorkerIds(newSet);
-    };
-
-    const toggleAllWorkers = (eligibleWorkers) => {
-        if (selectedWorkerIds.size === eligibleWorkers.length) {
-            setSelectedWorkerIds(new Set());
+        const initialData = {};
+        if (Array.isArray(slotAttendees)) {
+            // Eskicha format (faqat IDlar massivi) -> barcha sanalarga belgilash
+            slotAttendees.forEach(wid => {
+                initialData[wid] = new Set(dates);
+            });
         } else {
-            setSelectedWorkerIds(new Set(eligibleWorkers.map(w => w.id)));
+            // Yangi format ({ workerId: [2, 9, 16] })
+            for (const [wid, days] of Object.entries(slotAttendees)) {
+                initialData[wid] = new Set(days);
+            }
         }
+        setSelectedWorkerDates(initialData);
+    };
+
+    const toggleWorkerDate = (workerId, dateNum) => {
+        setSelectedWorkerDates(prev => {
+            const next = { ...prev };
+            if (!next[workerId]) next[workerId] = new Set();
+
+            if (next[workerId].has(dateNum)) {
+                next[workerId].delete(dateNum);
+                if (next[workerId].size === 0) delete next[workerId];
+            } else {
+                next[workerId].add(dateNum);
+            }
+            return next;
+        });
+    };
+
+    const toggleWorkerAllDates = (workerId) => {
+        setSelectedWorkerDates(prev => {
+            const next = { ...prev };
+            const currentSize = next[workerId]?.size || 0;
+            if (currentSize === availableDates.length) {
+                delete next[workerId]; // barchasini o'chirish
+            } else {
+                next[workerId] = new Set(availableDates); // barchasini tanlash
+            }
+            return next;
+        });
+    };
+
+    const toggleColumnDate = (dateNum, eligibleList) => {
+        setSelectedWorkerDates(prev => {
+            const next = { ...prev };
+            const isAllChecked = eligibleList.length > 0 && eligibleList.every(w => next[w.id]?.has(dateNum));
+
+            eligibleList.forEach(w => {
+                if (!next[w.id]) next[w.id] = new Set();
+                if (isAllChecked) {
+                    next[w.id].delete(dateNum);
+                    if (next[w.id].size === 0) delete next[w.id];
+                } else {
+                    next[w.id].add(dateNum);
+                }
+            });
+            return next;
+        });
+    };
+
+    const toggleAllGridWorkers = (eligibleList) => {
+        setSelectedWorkerDates(prev => {
+            const next = { ...prev };
+            const isAllChecked = eligibleList.length > 0 && eligibleList.every(w => {
+                const s = next[w.id];
+                return s && s.size === availableDates.length;
+            });
+
+            if (isAllChecked) {
+                eligibleList.forEach(w => { delete next[w.id]; });
+            } else {
+                eligibleList.forEach(w => { next[w.id] = new Set(availableDates); });
+            }
+            return next;
+        });
     };
 
     const saveAttendees = () => {
         if (!editingSlot) return;
         const monthData = attendees[selectedMonth] || {};
-        monthData[editingSlot.id] = Array.from(selectedWorkerIds);
+
+        const toSave = {};
+        for (const [wid, dateSet] of Object.entries(selectedWorkerDates)) {
+            if (dateSet.size > 0) {
+                toSave[wid] = Array.from(dateSet);
+            }
+        }
+
+        monthData[editingSlot.id] = toSave;
 
         setAttendees(prev => ({
             ...prev,
@@ -111,7 +205,10 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
 
     const getAssignedCount = (slotId) => {
         const monthData = attendees[selectedMonth] || {};
-        return (monthData[slotId] || []).length;
+        const slotData = monthData[slotId];
+        if (!slotData) return 0;
+        if (Array.isArray(slotData)) return slotData.length; // oldingi versiya
+        return Object.keys(slotData).length; // yangi versiya (har bir xodim bitta hisobiga kiradi)
     };
 
     // Modal ma'lumotlari
@@ -146,8 +243,8 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
                             key={m}
                             onClick={() => setSelectedMonth(m)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedMonth === m
-                                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md'
-                                    : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--border))]'
+                                ? 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md'
+                                : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--border))]'
                                 }`}
                         >
                             {m.slice(0, 3)}
@@ -287,19 +384,13 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
 
                                 <div className="flex items-center gap-3 w-full sm:w-auto">
                                     <span className="text-xs font-medium px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-md">
-                                        Tanlandi: {selectedWorkerIds.size} ta
+                                        Tanlandi: {Object.keys(selectedWorkerDates).length} ta xodim
                                     </span>
-                                    <button
-                                        onClick={() => toggleAllWorkers(eligibleWorkers)}
-                                        className="px-3 py-1.5 text-xs font-medium border border-[hsl(var(--border))] rounded-lg hover:bg-[hsl(var(--secondary))] transition-colors"
-                                    >
-                                        Barchasini {selectedWorkerIds.size === eligibleWorkers.length ? 'bekor qilish' : 'tanlash'}
-                                    </button>
                                 </div>
                             </div>
 
-                            {/* Xodimlar ro'yxati */}
-                            <div className="p-4 overflow-y-auto flex-1 space-y-2">
+                            {/* Xodimlar va Sanalar Matritsasi */}
+                            <div className="p-0 overflow-y-auto overflow-x-auto flex-1 h-full max-h-[50vh] min-h-[50vh]">
                                 {eligibleWorkers.length === 0 ? (
                                     <div className="text-center py-10 opacity-50">
                                         <Users size={32} className="mx-auto mb-2 text-[hsl(var(--muted-foreground))]" />
@@ -307,36 +398,74 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
                                         {searchQuery && <p className="text-xs mt-1">Qidiruv bo'yicha natija yo'q</p>}
                                     </div>
                                 ) : (
-                                    eligibleWorkers.map(worker => {
-                                        const isSelected = selectedWorkerIds.has(worker.id);
-                                        return (
-                                            <div
-                                                key={worker.id}
-                                                onClick={() => toggleWorker(worker.id)}
-                                                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isSelected
-                                                        ? 'bg-indigo-500/5 border-indigo-500 text-indigo-400 shadow-sm'
-                                                        : 'bg-[hsl(var(--secondary))] border-[hsl(var(--border))] hover:border-indigo-500/40 text-[hsl(var(--foreground))]'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-[hsl(var(--muted-foreground))] text-transparent'
-                                                        }`}>
-                                                        <Check size={14} />
-                                                    </div>
-                                                    <div>
-                                                        <p className={`text-sm font-semibold ${isSelected ? 'text-indigo-400' : ''}`}>
-                                                            {worker.name}
-                                                        </p>
-                                                        <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                                                            <span className="bg-[hsl(var(--background))] px-1.5 py-0.5 rounded border border-[hsl(var(--border))]">Tabel: {worker.tabelId}</span>
-                                                            <span className="bg-[hsl(var(--background))] px-1.5 py-0.5 rounded border border-[hsl(var(--border))]">{worker.sex}</span>
-                                                            <span className="bg-[hsl(var(--background))] px-1.5 py-0.5 rounded border border-[hsl(var(--border))] truncate max-w-[150px]">{worker.lavozim}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
+                                    <table className="w-full text-left border-collapse min-w-max">
+                                        <thead className="sticky top-0 bg-[hsl(var(--secondary))] z-10 shadow-sm">
+                                            <tr>
+                                                <th className="px-4 py-3 border-b text-xs font-semibold text-[hsl(var(--muted-foreground))]">F.I.SH va Tabel</th>
+                                                <th className="px-3 py-3 border-b text-center border-l border-[hsl(var(--border))] w-20">
+                                                    <span className="text-[10px] block mb-1 font-semibold text-indigo-400">Barchasi</span>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 accent-indigo-500 cursor-pointer rounded transition-transform active:scale-95"
+                                                        checked={eligibleWorkers.length > 0 && eligibleWorkers.every(w => selectedWorkerDates[w.id]?.size === availableDates.length)}
+                                                        onChange={() => toggleAllGridWorkers(eligibleWorkers)}
+                                                    />
+                                                </th>
+                                                {availableDates.map(date => {
+                                                    const isAllChecked = eligibleWorkers.length > 0 && eligibleWorkers.every(w => selectedWorkerDates[w.id]?.has(date));
+                                                    return (
+                                                        <th key={date} className="px-3 py-3 border-b text-center text-xs font-semibold border-l border-[hsl(var(--border))] w-20 hover:bg-[hsl(var(--border)/0.2)] transition-colors">
+                                                            <span className="block mb-1 text-[hsl(var(--foreground))]">{date} <span className="opacity-50">{selectedMonth.slice(0, 3)}</span></span>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="w-4 h-4 accent-indigo-500 cursor-pointer rounded transition-transform active:scale-95"
+                                                                checked={isAllChecked}
+                                                                onChange={() => toggleColumnDate(date, eligibleWorkers)}
+                                                            />
+                                                        </th>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {eligibleWorkers.map(worker => {
+                                                const wSet = selectedWorkerDates[worker.id] || new Set();
+                                                const isAll = wSet.size === availableDates.length && availableDates.length > 0;
+                                                const isAny = wSet.size > 0;
+
+                                                return (
+                                                    <tr key={worker.id} className={`border-b border-[hsl(var(--border)/0.5)] transition-colors hover:bg-[hsl(var(--secondary)/0.3)] ${isAny ? 'bg-indigo-500/5' : ''}`}>
+                                                        <td className="px-4 py-3 flex flex-col justify-center">
+                                                            <p className={`text-sm font-semibold leading-tight mb-1 ${isAny ? 'text-indigo-400' : ''}`}>{worker.name}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] px-1.5 rounded bg-[hsl(var(--background))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] font-mono">T: {worker.tabelId}</span>
+                                                                <span className="text-[10px] px-1.5 rounded bg-[hsl(var(--background))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{worker.sex}</span>
+                                                                <span className="text-[10px] px-1.5 rounded bg-[hsl(var(--background))] border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] line-clamp-1">{worker.lavozim}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-3 text-center border-l border-[hsl(var(--border)/0.5)] bg-[hsl(var(--secondary)/0.1)]">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isAll}
+                                                                onChange={() => toggleWorkerAllDates(worker.id)}
+                                                                className="w-4 h-4 accent-indigo-500 cursor-pointer rounded transition-transform active:scale-95"
+                                                            />
+                                                        </td>
+                                                        {availableDates.map(date => (
+                                                            <td key={date} className={`px-3 py-3 text-center border-l border-[hsl(var(--border)/0.5)] transition-colors ${wSet.has(date) ? 'bg-indigo-500/5' : 'hover:bg-[hsl(var(--secondary))]'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={wSet.has(date)}
+                                                                    onChange={() => toggleWorkerDate(worker.id, date)}
+                                                                    className="w-4 h-4 accent-indigo-500 cursor-pointer rounded transition-transform active:scale-95"
+                                                                />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 )}
                             </div>
 
