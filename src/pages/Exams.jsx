@@ -78,6 +78,8 @@ function QuestionsTab() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBank, setEditingBank] = useState(null);
     const [expandedBank, setExpandedBank] = useState(null);
+    const [importErrors, setImportErrors] = useState([]);
+    const [importSuccess, setImportSuccess] = useState('');
 
     const refreshBanks = () => setBanks(examStore.getQuestionBanks());
 
@@ -104,25 +106,112 @@ function QuestionsTab() {
         refreshBanks();
     };
 
+    // Import qilish (sahifa toolbaridan)
+    const handleImport = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = '';
+        setImportErrors([]);
+        setImportSuccess('');
+
+        try {
+            const result = await examStore.importTestQuestions(file);
+
+            if (result.errors.length > 0) {
+                setImportErrors(result.errors);
+            }
+
+            if (result.questions.length > 0) {
+                // Import qilingan savollar yangi to'plam sifatida yaratiladi
+                const bankName = `Import - ${new Date().toLocaleDateString('uz-UZ')}`;
+                examStore.createQuestionBank({
+                    name: bankName,
+                    seh: 'Barchasi',
+                    lavozim: 'Barchasi',
+                    razryad: 'Barchasi',
+                    questions: result.questions,
+                });
+                refreshBanks();
+                setImportSuccess(`${result.questions.length} ta savol muvaffaqiyatli yuklandi! "${bankName}" to'plami yaratildi.`);
+                setTimeout(() => setImportSuccess(''), 6000);
+            } else if (result.errors.length === 0) {
+                setImportErrors([{ row: '-', message: 'Faylda hech qanday savol topilmadi' }]);
+            }
+        } catch (err) {
+            console.error('Import xatolik:', err);
+            setImportErrors([{ row: '-', message: 'Fayl formatini tekshiring. Faqat .xlsx yoki .xls fayllarini yuklang.' }]);
+        }
+    };
+
+    // Tanlangan to'plamni export qilish
+    const handleExportBank = (bank) => {
+        if (!bank.questions?.length) return alert("Bu to'plamda savollar yo'q!");
+        examStore.exportTestQuestions(bank.questions, bank.name);
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            {/* Toolbar — Xodimlar sahifasi uslubida */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <p className="text-[hsl(var(--muted-foreground))] text-sm">
                     Jami: <strong>{banks.length}</strong> ta test to'plami
                 </p>
-                <button
-                    onClick={() => { setEditingBank(null); setIsModalOpen(true); }}
-                    className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:opacity-90 transition-opacity"
-                >
-                    <Plus size={18} /> Yangi Test To'plami
-                </button>
+                <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                        onClick={() => { setEditingBank(null); setIsModalOpen(true); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                        <Plus size={18} /> Test Qo'shish
+                    </button>
+                    <button onClick={() => examStore.downloadTestTemplate()}
+                        className="flex items-center gap-2 px-4 py-2 border border-[hsl(var(--border))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors">
+                        <Download size={18} /> Namuna Yuklab Olish
+                    </button>
+                    <label className="flex items-center gap-2 px-4 py-2 border border-[hsl(var(--border))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors cursor-pointer">
+                        <Upload size={18} /> Import
+                        <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                    </label>
+                </div>
             </div>
 
+            {/* Import xatoliklari */}
+            <AnimatePresence>
+                {importErrors.length > 0 && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                        className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                                <AlertTriangle size={16} /> Import Xatoliklari ({importErrors.length})
+                            </h4>
+                            <button onClick={() => setImportErrors([])} className="text-red-400 hover:text-red-600 p-1 rounded"><X size={14} /></button>
+                        </div>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {importErrors.map((err, i) => (
+                                <p key={i} className="text-xs text-red-600 dark:text-red-400">
+                                    <strong>Qator {err.row}:</strong> {err.message}
+                                </p>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Import muvaffaqiyat */}
+            <AnimatePresence>
+                {importSuccess && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                        className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 text-sm">
+                        <CheckCircle size={16} /> {importSuccess}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Test to'plamlari ro'yxati */}
             {banks.length === 0 ? (
                 <div className="text-center py-16 text-[hsl(var(--muted-foreground))]">
                     <BookOpen className="mx-auto mb-4 opacity-30" size={48} />
                     <p className="text-lg font-medium">Savollar bazasi bo'sh</p>
-                    <p className="text-sm mt-1">Yangi test to'plami yarating</p>
+                    <p className="text-sm mt-1">Yangi test to'plami yarating yoki Excel dan import qiling</p>
                 </div>
             ) : (
                 <div className="grid gap-4">
@@ -146,6 +235,10 @@ function QuestionsTab() {
                                     <button onClick={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
                                         className="p-2 hover:bg-[hsl(var(--secondary))] rounded-lg transition-colors" title="Savollarni ko'rish">
                                         {expandedBank === bank.id ? <ChevronUp size={18} /> : <Eye size={18} />}
+                                    </button>
+                                    <button onClick={() => handleExportBank(bank)}
+                                        className="p-2 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg transition-colors" title="Export (Excel)">
+                                        <FileDown size={18} />
                                     </button>
                                     <button onClick={() => handleEdit(bank)}
                                         className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg transition-colors" title="Tahrirlash">
@@ -189,85 +282,22 @@ function QuestionsTab() {
     );
 }
 
-// === Savollar bazasi modal (AddWorkshopModal uslubida) ===
+// === Savollar bazasi modal (AddWorkshopModal kabi kompakt) ===
 function QuestionBankModal({ bank, onSave, onClose }) {
     const [name, setName] = useState(bank?.name || '');
     const [seh, setSeh] = useState(bank?.seh || 'Barchasi');
     const [lavozim, setLavozim] = useState(bank?.lavozim || 'Barchasi');
     const [razryad, setRazryad] = useState(bank?.razryad || 'Barchasi');
-    const [questions, setQuestions] = useState(bank?.questions || [{ question: '', options: ['', '', '', ''], correct: 0 }]);
-    const [importErrors, setImportErrors] = useState([]);
-    const [importSuccess, setImportSuccess] = useState('');
-
-    const addQuestion = () => setQuestions([...questions, { question: '', options: ['', '', '', ''], correct: 0 }]);
-
-    const removeQuestion = (idx) => {
-        if (questions.length <= 1) return;
-        setQuestions(questions.filter((_, i) => i !== idx));
-    };
-
-    const updateQuestion = (idx, field, val) => {
-        const updated = [...questions];
-        if (field === 'question') updated[idx].question = val;
-        else if (field === 'correct') updated[idx].correct = val;
-        else if (field.startsWith('option_')) {
-            const optIdx = parseInt(field.split('_')[1]);
-            updated[idx].options[optIdx] = val;
-        }
-        setQuestions(updated);
-    };
 
     const handleSubmit = (e) => {
-        e?.preventDefault();
+        e.preventDefault();
         if (!name.trim()) return alert("To'plam nomini kiriting!");
-        const validQ = questions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
-        if (validQ.length === 0) return alert("Kamida 1 ta to'liq savol kiriting!");
-        onSave({ name, seh, lavozim, razryad, questions: validQ });
-    };
-
-    // Import qilish
-    const handleImport = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        e.target.value = '';
-        setImportErrors([]);
-        setImportSuccess('');
-
-        try {
-            const result = await examStore.importTestQuestions(file);
-
-            if (result.errors.length > 0) {
-                setImportErrors(result.errors);
-            }
-
-            if (result.questions.length > 0) {
-                // Mavjud bo'sh savolni (faqat bitta bo'sh bo'lsa) olib tashlab, import savollarini qo'shish
-                const hasOnlyEmptyQuestion = questions.length === 1 && !questions[0].question.trim();
-                if (hasOnlyEmptyQuestion) {
-                    setQuestions(result.questions);
-                } else {
-                    setQuestions([...questions, ...result.questions]);
-                }
-                setImportSuccess(`${result.questions.length} ta savol muvaffaqiyatli yuklandi!`);
-                setTimeout(() => setImportSuccess(''), 5000);
-            } else if (result.errors.length === 0) {
-                setImportErrors([{ row: '-', message: 'Faylda hech qanday savol topilmadi' }]);
-            }
-        } catch (err) {
-            console.error('Import xatolik:', err);
-            setImportErrors([{ row: '-', message: 'Fayl formatini tekshiring. Faqat .xlsx yoki .xls fayllarini yuklang.' }]);
-        }
-    };
-
-    // Export
-    const handleExport = () => {
-        const validQ = questions.filter(q => q.question.trim());
-        if (validQ.length === 0) return alert("Export qilish uchun kamida 1 ta savol kerak!");
-        examStore.exportTestQuestions(validQ, name || 'Test_Savollari');
+        // Tahrirlashda eski savollarni saqlab qolish, yangi yaratishda bo'sh
+        const questions = bank?.questions || [];
+        onSave({ name, seh, lavozim, razryad, questions });
     };
 
     const inputCls = "w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all";
-    const selectCls = inputCls;
 
     return (
         <AnimatePresence>
@@ -276,11 +306,11 @@ function QuestionBankModal({ bank, onSave, onClose }) {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                    <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                             {bank ? "Test To'plamini Tahrirlash" : "Yangi Test To'plami"}
                         </h2>
@@ -289,148 +319,62 @@ function QuestionBankModal({ bank, onSave, onClose }) {
                         </button>
                     </div>
 
-                    {/* Content */}
-                    <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-                        {/* To'plam nomi */}
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 To'plam Nomi <span className="text-red-500">*</span>
                             </label>
-                            <input type="text" value={name} onChange={e => setName(e.target.value)}
+                            <input type="text" required value={name} onChange={e => setName(e.target.value)}
                                 className={inputCls} placeholder="Masalan: Mashinist asosiy testlari" />
                         </div>
 
-                        {/* Seh, Lavozim, Razryad */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seh</label>
-                                <select value={seh} onChange={e => setSeh(e.target.value)} className={selectCls}>
-                                    <option value="Barchasi">Barchasi</option>
-                                    <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option>
-                                    <option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lavozim</label>
-                                <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={selectCls}>
-                                    <option value="Barchasi">Barchasi</option>
-                                    <option>Mashinist</option><option>Elektrik</option>
-                                    <option>Payvandchi</option><option>Kadrlar bo'limi</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razryad</label>
-                                <select value={razryad} onChange={e => setRazryad(e.target.value)} className={selectCls}>
-                                    <option value="Barchasi">Barchasi</option>
-                                    <option>2-toifa</option><option>3-toifa</option>
-                                    <option>4-toifa</option><option>5-toifa</option>
-                                </select>
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seh</label>
+                            <select value={seh} onChange={e => setSeh(e.target.value)} className={inputCls}>
+                                <option value="Barchasi">Barchasi</option>
+                                <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option>
+                                <option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
+                            </select>
                         </div>
 
-                        {/* Import / Export / Namuna tugmalari */}
-                        <div className="flex flex-wrap gap-2 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                            <button type="button" onClick={() => examStore.downloadTestTemplate()}
-                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300">
-                                <Download size={16} /> Namuna Yuklab Olish
-                            </button>
-                            <label className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-gray-700 dark:text-gray-300">
-                                <Upload size={16} /> Import (Excel)
-                                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-                            </label>
-                            <button type="button" onClick={handleExport}
-                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-green-300 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/10">
-                                <FileDown size={16} /> Export (Excel)
-                            </button>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lavozim</label>
+                            <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={inputCls}>
+                                <option value="Barchasi">Barchasi</option>
+                                <option>Mashinist</option><option>Elektrik</option>
+                                <option>Payvandchi</option><option>Kadrlar bo'limi</option>
+                            </select>
                         </div>
 
-                        {/* Import xatoliklari */}
-                        <AnimatePresence>
-                            {importErrors.length > 0 && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                    className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h4 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
-                                            <AlertTriangle size={16} /> Import Xatoliklari ({importErrors.length})
-                                        </h4>
-                                        <button type="button" onClick={() => setImportErrors([])} className="text-red-400 hover:text-red-600 p-1 rounded">
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                                        {importErrors.map((err, i) => (
-                                            <p key={i} className="text-xs text-red-600 dark:text-red-400">
-                                                <strong>Qator {err.row}:</strong> {err.message}
-                                            </p>
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razryad</label>
+                            <select value={razryad} onChange={e => setRazryad(e.target.value)} className={inputCls}>
+                                <option value="Barchasi">Barchasi</option>
+                                <option>2-toifa</option><option>3-toifa</option>
+                                <option>4-toifa</option><option>5-toifa</option>
+                            </select>
+                        </div>
 
-                        {/* Import muvaffaqiyat */}
-                        <AnimatePresence>
-                            {importSuccess && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                    className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 text-sm">
-                                    <CheckCircle size={16} /> {importSuccess}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Savollar ro'yxati */}
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Savollar <span className="text-gray-400">({questions.length} ta)</span>
-                                </label>
-                                <button type="button" onClick={addQuestion}
-                                    className="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm">
-                                    <Plus size={14} /> Savol Qo'shish
-                                </button>
-                            </div>
-                            {questions.map((q, qi) => (
-                                <div key={qi} className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Savol #{qi + 1}</span>
-                                        {questions.length > 1 && (
-                                            <button type="button" onClick={() => removeQuestion(qi)}
-                                                className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><Trash2 size={14} /></button>
-                                        )}
-                                    </div>
-                                    <input value={q.question} onChange={e => updateQuestion(qi, 'question', e.target.value)}
-                                        className={inputCls} placeholder="Savol matnini kiriting..." />
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {q.options.map((opt, oi) => (
-                                            <div key={oi} className="flex items-center gap-2">
-                                                <input type="radio" name={`correct_${qi}`} checked={q.correct === oi}
-                                                    onChange={() => updateQuestion(qi, 'correct', oi)} className="accent-green-500 w-4 h-4" />
-                                                <input value={opt} onChange={e => updateQuestion(qi, `option_${oi}`, e.target.value)}
-                                                    className={`${inputCls} flex-1`} placeholder={`${String.fromCharCode(65 + oi)} variant`} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Footer */}
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button type="button" onClick={onClose}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                Bekor qilish
+                            </button>
+                            <button type="submit"
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow-md">
+                                <Save size={18} /> Saqlash
+                            </button>
                         </div>
                     </form>
-
-                    {/* Footer */}
-                    <div className="flex justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
-                        <button type="button" onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                            Bekor qilish
-                        </button>
-                        <button type="button" onClick={handleSubmit}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow-md">
-                            <Save size={18} /> Saqlash
-                        </button>
-                    </div>
                 </motion.div>
             </div>
         </AnimatePresence>
     );
 }
+
+
 
 // ==================== 2. TAYINLASH ====================
 function AssignTab() {
