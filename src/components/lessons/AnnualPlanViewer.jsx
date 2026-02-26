@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowLeft, Printer, Download, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { exportPlanToDocx } from '../../utils/docxExporter';
 
 const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
 
@@ -167,26 +168,13 @@ export default function AnnualPlanViewer({ plan, onBack, onEdit }) {
         setShowExportMenu(false);
     };
 
-    const handleExportWord = () => {
-        const html = buildPrintHTML();
-        const fullHTML = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-            <head><meta charset="utf-8">
-            <style>
-                @page { size: A4 landscape; margin: 10mm 12mm; }
-                body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; color: #000; }
-                table { border-collapse: collapse; }
-            </style></head><body>${html}</body></html>`;
-
-        const blob = new Blob(['\ufeff', fullHTML], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${plan.name}.doc`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    const handleExportWord = async () => {
+        try {
+            await exportPlanToDocx(plan);
+        } catch (err) {
+            console.error('Word export xatosi:', err);
+            alert('Word faylni yaratishda xatolik yuz berdi');
+        }
         setShowExportMenu(false);
     };
 
@@ -219,7 +207,7 @@ export default function AnnualPlanViewer({ plan, onBack, onEdit }) {
                                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
                                 <div className="absolute right-0 top-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl shadow-xl z-20 overflow-hidden min-w-[170px]">
                                     <button onClick={handleExportWord} className="w-full px-4 py-2.5 text-left text-xs hover:bg-[hsl(var(--secondary))] transition-colors flex items-center gap-2">
-                                        📝 Word (.doc)
+                                        📝 Word (.docx)
                                     </button>
                                     <button onClick={handleExportExcel} className="w-full px-4 py-2.5 text-left text-xs hover:bg-[hsl(var(--secondary))] transition-colors flex items-center gap-2">
                                         📊 Excel (.xlsx)
