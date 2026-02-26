@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Calendar, Users, FileText, Sparkles } from 'lucide-react';
+import { BookOpen, Calendar, Users, FileText, Sparkles, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import TopicManager from '../components/lessons/TopicManager';
 import LessonSchedule from '../components/lessons/LessonSchedule';
 import AttendanceTracker from '../components/lessons/AttendanceTracker';
 import ProtocolGenerator from '../components/lessons/ProtocolGenerator';
+import AnnualPlanList from '../components/lessons/AnnualPlanList';
+import AnnualPlanEditor from '../components/lessons/AnnualPlanEditor';
+import AnnualPlanViewer from '../components/lessons/AnnualPlanViewer';
 
 // ===== LocalStorage kalitlari =====
 const STORAGE_KEYS = {
     topics: 'oquv_dars_topics',
     lessons: 'oquv_dars_lessons',
+    annualPlans: 'oquv_annual_plans',
 };
 
 // ===== Boshlang'ich namuna ma'lumotlar =====
@@ -29,7 +33,7 @@ const INITIAL_LESSONS = [
     { id: 4, topicId: 4, topicName: 'Yangi lokomotiv turlari', topicCategory: 'Yangi texnologiyalar', date: '2026-03-03', time: '09:00', duration: '90', instructor: 'Toshmatov G.', location: 'O\'quv xonasi №1', status: 'planned', attendees: [], notes: '' },
 ];
 
-// ===== Xodimlar (Workers.jsx dagi bilan bir xil) =====
+// ===== Xodimlar =====
 const INITIAL_WORKERS = [
     { id: 1, name: 'Abdullayev Botir', sex: '1-Sex', lavozim: 'Mashinist', tabelId: '1001', razryad: '3-toifa', lastExamDate: '2025-12-10', lastExamGrade: '5' },
     { id: 2, name: 'Qodirov Jamshid', sex: '2-Sex', lavozim: 'Elektrik', tabelId: '1002', razryad: '4-toifa', lastExamDate: '2026-01-15', lastExamGrade: '4' },
@@ -37,8 +41,107 @@ const INITIAL_WORKERS = [
     { id: 4, name: 'Tursunov Alisher', sex: '3-Sex', lavozim: 'Payvandchi', tabelId: '1004', razryad: '3-toifa', lastExamDate: '2026-02-01', lastExamGrade: '3' },
 ];
 
+// ===== Namuna yillik reja =====
+const SAMPLE_ANNUAL_PLAN = {
+    id: 1,
+    name: '02-13-Seh yillik reja',
+    year: 2025,
+    direction: 'Chilangarlik ishi: Gaz-elektr Payvandchisi. Tokarlik ishi.',
+    workshops: ['02', '13'],
+    hourPerLesson: 2,
+    author: 'Saqaliyev I.',
+    consultant: 'Israilov I.A.',
+    totalHours: 96,
+    createdAt: '2025-01-15',
+    lessons: (() => {
+        const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
+        const topics = [
+            '2024 yil yo\'l qo\'yilgan braklar va nuqsonlar tahlili',
+            'Xalqaro CI o\'lcham birliklari bo\'yicha umumiy tushuncha',
+            'Metallar va materiallar bo\'yicha umumiy tushuncha',
+            '2024 yil mehnat muhofazasi talab va qoidalari buzilishi tahlili',
+            'Metall qotishmalarini mexanik xususiyatlari',
+            'Po\'lat. Termik va kimyoviy ishlov berish',
+            'Cho\'yanlar. Umumiy ma\'lumot',
+            'Temir yo\'llarda yurish qonun va qoidalari',
+            'Rangli metallar va qotishmalar',
+            'Plastmassalar. Nometall materiallar',
+            'Germetik materiallar',
+            'Uch qirralik nazorat tizimi. Talon tizimi',
+            'Moy va moylash materiallari',
+            'Shtangen serkul va mikrometr o\'lchov asboblari',
+            'Yassi maydonlarni belgilash usullari',
+            'Chilangarlik asboblariga qo\'yiladigan talablar',
+            'Metalllarni bukish va kesish usullari',
+            'Metallarni kesish va maydonlarni egovlash',
+            'Metallarni teshish va zinkirlash',
+            'Shaxsiy himoya vositalari. O\'t o\'chirish turlari',
+            'Metall materiallarga rezba ochish va shaberlash',
+            'Tayyor detallarni pritirka qilish usullari',
+            'Mehnat muhofazasi vakillarini ishlarini tashkil etish',
+            'Inson travma olganda birinchi tibbiy yordam ko\'rsatish',
+            'Dopusk va posadka tushunchalari',
+            'Mashina va mexanizmlarni sxemalarini o\'qish',
+            'Stanoklar klassifikatsiyasi',
+            'Elektr himoya vositalari',
+            'Gazoelektr payvandlash texnologiyasi',
+            'Payvandlash elektrodlari va turlari',
+            'Tokarlik stanoklariga texnik qarov ko\'rsatish (PPR)',
+            'Balandlikda va yuqori balandlikda ishlarni tashkil etish',
+            'Yemirilgan rezbalarni tiklash',
+            'Elektr payvandchilarni lavozim yo\'riqnomasi',
+            'Kran va zadvashkalarni ta\'mirlash',
+            'Zaharlantsh va uning turlari',
+            'Texnologik jarayonda qo\'llaniladigan texnik terminlar',
+            'A-41 lokomotiv juft g\'ildiraklarini yo\'nish dastgoxiga texnik qarov',
+            'A-41 lokomotiv juft g\'ildiraklarini yo\'nish dastgoxini ta\'mirlash',
+            'Yo\'nish dastgoxlarini ta\'mirlashda mehnat muhofazasi talablari',
+            '1130 Lokomotiv juft g\'ildiraklarini yo\'nish dastgoxiga texnik qarov',
+            '1130 Yo\'nish dastgoxini ta\'mirlash',
+            'Yuk ko\'tarish kranlarini xavfsiz ishlatishda qonun qoidalari (PUBE)',
+            'Yuk ko\'tarish kranlarni statik va dinamik sinovdan o\'tkazish texnologiyasi',
+            '1132 Lokomotiv juft g\'ildiraklarini yo\'nish dastgoxiga texnik qarov',
+            '1132 Yo\'nish dastgoxini ta\'mirlash',
+            'KDE-16 temir yo\'l kraniga texnik qarov ko\'rsatish',
+            'Bilim sinovi',
+        ];
+        const lits = [
+            'Hisobot ma\'lumot', 'V.A.Starichkov. Konspekt', 'G.K.Tatarinov. Konspekt', 'Hisobot ma\'lumot',
+            'G.K.Tatarinov. Konspekt', 'G.K.Tatarinov. Konspekt', 'G.K.Tatarinov. Konspekt', 'Konspekt',
+            'G.K.Tatarinov. Konspekt', 'G.K.Tatarinov. Konspekt', 'G.K.Tatarinov. Konspekt', 'Konspekt',
+            'G.K.Tatarinov. Konspekt', 'Pasport. Konspekt', 'V.A.Starichkov', 'Konspekt',
+            'V.A.Starichkov', 'V.A.Starichkov. Konspekt', 'V.A.Starichkov. Konspekt', 'Konspekt',
+            'V.A.Starichkov', 'V.A.Starichkov', 'Konspekt', 'Konspekt',
+            'Konspekt', 'V.A.Starichkov. Konspekt', 'N.I.Makienko. Konspekt', 'Konspekt',
+            'Payvandlash yo\'riqnomasi', 'Konspekt', 'Konspekt. Grafik PPR', 'Yo\'riqnoma',
+            'Payvandlash yo\'riqnomasi', 'Lavozim yo\'riqnomasi', 'V.K.Tepinkevich', 'Konspekt',
+            'Tex. protsess', 'Yo\'riqnoma', 'Yo\'riqnoma', 'Konspekt',
+            'Tex. pasport', 'Tex. pasport', 'PUBE', '(PUBE)',
+            'Ta\'mir qo\'llanmasi', 'Ta\'mir qo\'llanmasi', 'Ta\'mir qo\'llanmasi', 'Test',
+        ];
+        const lessons = [];
+        let num = 1;
+        for (let m = 0; m < 12; m++) {
+            for (let w = 0; w < 4; w++) {
+                const idx = num - 1;
+                lessons.push({
+                    number: num,
+                    month: MONTHS[m],
+                    topic: topics[idx] || '',
+                    hours: 2,
+                    literature: lits[idx] || '',
+                    instructor: '',
+                });
+                num++;
+            }
+        }
+        return lessons;
+    })(),
+};
+
 // ===== Tablar konfiguratsiyasi =====
 const TABS = [
+    { id: 'annualPlan', label: 'Yillik Reja', icon: ClipboardList, color: 'from-indigo-500 to-blue-600' },
     { id: 'schedule', label: 'Dars Jadvali', icon: Calendar, color: 'from-blue-500 to-cyan-600' },
     { id: 'topics', label: 'Mavzular', icon: BookOpen, color: 'from-violet-500 to-purple-600' },
     { id: 'attendance', label: 'Qatnashish', icon: Users, color: 'from-emerald-500 to-green-600' },
@@ -46,8 +149,13 @@ const TABS = [
 ];
 
 export default function Lessons() {
-    const [activeTab, setActiveTab] = useState('schedule');
+    const [activeTab, setActiveTab] = useState('annualPlan');
     const [selectedLessonForAttendance, setSelectedLessonForAttendance] = useState(null);
+
+    // === Yillik Reja holati ===
+    const [annualPlanView, setAnnualPlanView] = useState('list'); // 'list' | 'editor' | 'viewer'
+    const [editingPlan, setEditingPlan] = useState(null);
+    const [viewingPlan, setViewingPlan] = useState(null);
 
     // LocalStorage dan yuklash
     const [topics, setTopics] = useState(() => {
@@ -64,7 +172,13 @@ export default function Lessons() {
         } catch { return INITIAL_LESSONS; }
     });
 
-    // Workers — hozircha Workers.jsx dagi localStorage dan yuklash
+    const [annualPlans, setAnnualPlans] = useState(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEYS.annualPlans);
+            return saved ? JSON.parse(saved) : [SAMPLE_ANNUAL_PLAN];
+        } catch { return [SAMPLE_ANNUAL_PLAN]; }
+    });
+
     const [workers] = useState(() => {
         try {
             const saved = localStorage.getItem('oquv_workers');
@@ -81,25 +195,66 @@ export default function Lessons() {
         localStorage.setItem(STORAGE_KEYS.lessons, JSON.stringify(lessons));
     }, [lessons]);
 
-    // Qatnashish tabiga o'tish (dars jadvalidan)
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.annualPlans, JSON.stringify(annualPlans));
+    }, [annualPlans]);
+
+    // === Yillik Reja funksiyalari ===
+    const handleCreateNewPlan = () => {
+        setEditingPlan(null);
+        setAnnualPlanView('editor');
+    };
+
+    const handleViewPlan = (plan) => {
+        setViewingPlan(plan);
+        setAnnualPlanView('viewer');
+    };
+
+    const handleEditPlan = (plan) => {
+        setEditingPlan(plan);
+        setAnnualPlanView('editor');
+    };
+
+    const handleDeletePlan = (planId) => {
+        if (confirm('Ushbu yillik rejani o\'chirmoqchimisiz?')) {
+            setAnnualPlans(prev => prev.filter(p => p.id !== planId));
+        }
+    };
+
+    const handleSavePlan = (planData) => {
+        setAnnualPlans(prev => {
+            const exists = prev.find(p => p.id === planData.id);
+            if (exists) {
+                return prev.map(p => p.id === planData.id ? planData : p);
+            }
+            return [...prev, planData];
+        });
+        setAnnualPlanView('list');
+        setEditingPlan(null);
+    };
+
     const handleNavigateToAttendance = (lesson) => {
         setSelectedLessonForAttendance(lesson);
         setActiveTab('attendance');
     };
 
-    // Tab o'zgarganda tanlangan darsni tozalash
     useEffect(() => {
         if (activeTab !== 'attendance') {
             setSelectedLessonForAttendance(null);
+        }
+        if (activeTab !== 'annualPlan') {
+            setAnnualPlanView('list');
+            setEditingPlan(null);
+            setViewingPlan(null);
         }
     }, [activeTab]);
 
     // Umumiy statistika
     const stats = {
+        totalPlans: annualPlans.length,
         totalTopics: topics.length,
         totalLessons: lessons.length,
         completedLessons: lessons.filter(l => l.status === 'completed').length,
-        totalAttendees: lessons.reduce((sum, l) => sum + (l.attendees?.length || 0), 0),
     };
 
     return (
@@ -116,7 +271,7 @@ export default function Lessons() {
                             <Sparkles size={18} className="text-amber-400" />
                         </h1>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            Dars jadvali, mavzular, qatnashish va bayonnomalar
+                            Yillik rejalar, dars jadvali, qatnashish va bayonnomalar
                         </p>
                     </div>
                 </div>
@@ -124,6 +279,7 @@ export default function Lessons() {
                 {/* Mini statistika */}
                 <div className="flex gap-3">
                     {[
+                        { label: 'Rejalar', value: stats.totalPlans, color: 'text-indigo-400' },
                         { label: 'Mavzular', value: stats.totalTopics, color: 'text-violet-400' },
                         { label: 'Darslar', value: stats.totalLessons, color: 'text-blue-400' },
                         { label: 'O\'tkazildi', value: stats.completedLessons, color: 'text-emerald-400' },
@@ -137,7 +293,7 @@ export default function Lessons() {
             </div>
 
             {/* Tablar */}
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1.5 inline-flex gap-1 w-full sm:w-auto">
+            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-1.5 inline-flex gap-1 w-full sm:w-auto overflow-x-auto">
                 {TABS.map(tab => {
                     const isActive = activeTab === tab.id;
                     const TabIcon = tab.icon;
@@ -146,7 +302,7 @@ export default function Lessons() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 sm:flex-initial justify-center ${isActive
+                            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 sm:flex-initial justify-center whitespace-nowrap ${isActive
                                     ? 'text-white shadow-lg'
                                     : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))]'
                                 }`}
@@ -176,6 +332,34 @@ export default function Lessons() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                 >
+                    {activeTab === 'annualPlan' && (
+                        <>
+                            {annualPlanView === 'list' && (
+                                <AnnualPlanList
+                                    plans={annualPlans}
+                                    onCreateNew={handleCreateNewPlan}
+                                    onView={handleViewPlan}
+                                    onEdit={handleEditPlan}
+                                    onDelete={handleDeletePlan}
+                                />
+                            )}
+                            {annualPlanView === 'editor' && (
+                                <AnnualPlanEditor
+                                    plan={editingPlan}
+                                    onSave={handleSavePlan}
+                                    onCancel={() => { setAnnualPlanView('list'); setEditingPlan(null); }}
+                                />
+                            )}
+                            {annualPlanView === 'viewer' && viewingPlan && (
+                                <AnnualPlanViewer
+                                    plan={viewingPlan}
+                                    onBack={() => { setAnnualPlanView('list'); setViewingPlan(null); }}
+                                    onEdit={(p) => { setEditingPlan(p); setAnnualPlanView('editor'); }}
+                                />
+                            )}
+                        </>
+                    )}
+
                     {activeTab === 'schedule' && (
                         <LessonSchedule
                             lessons={lessons}
