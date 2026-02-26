@@ -192,7 +192,7 @@ export default function AdminUsers() {
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold">{user.fullName}</p>
-                                                    {user.id === currentUser.id && (
+                                                    {String(user.id) === String(currentUser.id) && (
                                                         <span className="text-xs text-blue-500">(Siz)</span>
                                                     )}
                                                 </div>
@@ -262,8 +262,8 @@ export default function AdminUsers() {
                                                             setDeleteConfirm(user.id);
                                                         }}
                                                         className={`p-2 rounded-lg transition-colors ${String(user.id) === String(currentUser.id)
-                                                                ? 'text-gray-400 cursor-not-allowed opacity-40'
-                                                                : 'hover:bg-red-500/10 text-red-500'
+                                                            ? 'text-gray-400 cursor-not-allowed opacity-40'
+                                                            : 'hover:bg-red-500/10 text-red-500'
                                                             }`}
                                                         title={String(user.id) === String(currentUser.id) ? "O'zingizni o'chira olmaysiz" : "O'chirish"}
                                                     >
