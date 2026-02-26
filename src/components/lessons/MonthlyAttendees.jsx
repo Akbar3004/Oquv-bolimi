@@ -120,13 +120,15 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
     const toggleWorkerDate = (workerId, dateNum) => {
         setSelectedWorkerDates(prev => {
             const next = { ...prev };
-            if (!next[workerId]) next[workerId] = new Set();
+            const nextSet = next[workerId] ? new Set(next[workerId]) : new Set();
 
-            if (next[workerId].has(dateNum)) {
-                next[workerId].delete(dateNum);
-                if (next[workerId].size === 0) delete next[workerId];
+            if (nextSet.has(dateNum)) {
+                nextSet.delete(dateNum);
+                if (nextSet.size === 0) delete next[workerId];
+                else next[workerId] = nextSet;
             } else {
-                next[workerId].add(dateNum);
+                nextSet.add(dateNum);
+                next[workerId] = nextSet;
             }
             return next;
         });
@@ -151,12 +153,14 @@ export default function MonthlyAttendees({ annualPlans, workers }) {
             const isAllChecked = eligibleList.length > 0 && eligibleList.every(w => next[w.id]?.has(dateNum));
 
             eligibleList.forEach(w => {
-                if (!next[w.id]) next[w.id] = new Set();
+                const nextSet = next[w.id] ? new Set(next[w.id]) : new Set();
                 if (isAllChecked) {
-                    next[w.id].delete(dateNum);
-                    if (next[w.id].size === 0) delete next[w.id];
+                    nextSet.delete(dateNum);
+                    if (nextSet.size === 0) delete next[w.id];
+                    else next[w.id] = nextSet;
                 } else {
-                    next[w.id].add(dateNum);
+                    nextSet.add(dateNum);
+                    next[w.id] = nextSet;
                 }
             });
             return next;
