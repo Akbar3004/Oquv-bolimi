@@ -4,12 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
 
-// 48 ta bo'sh dars yaratish
-const createEmptyLessons = (hourPerLesson = 2) => {
+// Boshlang'ich bo'sh darslar yaratish (har oy 4 ta)
+const createEmptyLessons = (hourPerLesson = 2, perMonth = 4) => {
     const lessons = [];
     let num = 1;
     for (const month of MONTHS) {
-        for (let w = 0; w < 4; w++) {
+        for (let w = 0; w < perMonth; w++) {
             lessons.push({ number: num, month, topic: '', hours: hourPerLesson, literature: '', instructor: '' });
             num++;
         }
@@ -116,7 +116,7 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                 hourPerLesson: plan.hourPerLesson || 2,
                 author: plan.author || '',
                 consultant: plan.consultant || '',
-                lessons: plan.lessons && plan.lessons.length === 48 ? plan.lessons : createEmptyLessons(plan.hourPerLesson || 2),
+                lessons: plan.lessons && plan.lessons.length > 0 ? plan.lessons : createEmptyLessons(plan.hourPerLesson || 2),
                 titlePage: plan.titlePage || JSON.parse(JSON.stringify(DEFAULT_TITLE_PAGE)),
                 signatures: plan.signatures || [
                     { title: 'Tuzuvchi: Bosh mexanik:', name: plan.author || '' },
@@ -206,7 +206,34 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
     const monthStartIndex = formData.lessons.findIndex(l => l.month === activeMonth);
 
     const getMonthCompletion = (month) => {
-        return formData.lessons.filter(l => l.month === month && l.topic?.trim()).length;
+        const monthAll = formData.lessons.filter(l => l.month === month);
+        const filled = monthAll.filter(l => l.topic?.trim()).length;
+        return { filled, total: monthAll.length };
+    };
+
+    // Oyga dars qo'shish
+    const addLessonToMonth = (month) => {
+        const updatedLessons = [...formData.lessons];
+        const lastInMonth = [...updatedLessons].reverse().findIndex(l => l.month === month);
+        const insertIdx = lastInMonth >= 0 ? updatedLessons.length - lastInMonth : updatedLessons.length;
+        updatedLessons.splice(insertIdx, 0, {
+            number: 0, month, topic: '', hours: formData.hourPerLesson, literature: '', instructor: ''
+        });
+        // Raqamlarni qayta hisoblash
+        updatedLessons.forEach((l, i) => { l.number = i + 1; });
+        setFormData({ ...formData, lessons: updatedLessons });
+    };
+
+    // Oydan dars o'chirish (oxirgi bo'sh darsni)
+    const removeLessonFromMonth = (month) => {
+        const monthLessonsArr = formData.lessons.filter(l => l.month === month);
+        if (monthLessonsArr.length <= 1) return; // Kamida 1 ta qolishi kerak
+        // Oxirgi bo'sh darsni topish
+        const lastEmpty = [...monthLessonsArr].reverse().find(l => !l.topic?.trim());
+        const toRemove = lastEmpty || monthLessonsArr[monthLessonsArr.length - 1];
+        const updatedLessons = formData.lessons.filter(l => l !== toRemove);
+        updatedLessons.forEach((l, i) => { l.number = i + 1; });
+        setFormData({ ...formData, lessons: updatedLessons });
     };
 
     // Seksiya accordion
@@ -240,7 +267,7 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                     <div>
                         <h2 className="text-lg font-bold">{plan ? 'Rejani Tahrirlash' : 'Yangi Yillik Reja'}</h2>
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                            {formData.lessons.filter(l => l.topic?.trim()).length}/48 dars to'ldirilgan
+                            {formData.lessons.filter(l => l.topic?.trim()).length}/{formData.lessons.length} dars to'ldirilgan
                         </p>
                     </div>
                 </div>
@@ -559,7 +586,7 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                 title="📝 Darslar Jadvali"
                 icon={BookOpen}
                 color="from-emerald-500 to-green-600"
-                subtitle={`${formData.lessons.filter(l => l.topic?.trim()).length}/48 dars to'ldirilgan`}
+                subtitle={`${formData.lessons.filter(l => l.topic?.trim()).length}/${formData.lessons.length} dars to'ldirilgan`}
             />
 
             <AnimatePresence>
@@ -575,7 +602,7 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                             <div className="p-4 border-b border-[hsl(var(--border))]">
                                 <div className="flex flex-wrap gap-1.5">
                                     {MONTHS.map(m => {
-                                        const completion = getMonthCompletion(m);
+                                        const { filled, total } = getMonthCompletion(m);
                                         return (
                                             <button key={m} onClick={() => setActiveMonth(m)}
                                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeMonth === m
@@ -583,8 +610,8 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                                                     : 'bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--border))]'
                                                     }`}>
                                                 {m.slice(0, 3)}
-                                                <span className={`ml-1 text-[10px] ${activeMonth === m ? 'text-white/70' : completion === 4 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                                    {completion}/4
+                                                <span className={`ml-1 text-[10px] ${activeMonth === m ? 'text-white/70' : filled === total ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                    {filled}/{total}
                                                 </span>
                                             </button>
                                         );
@@ -633,8 +660,24 @@ export default function AnnualPlanEditor({ plan, onSave, onCancel }) {
                             </div>
 
                             <div className="px-4 py-3 bg-[hsl(var(--secondary)/0.3)] border-t border-[hsl(var(--border))] flex items-center justify-between text-xs text-[hsl(var(--muted-foreground))]">
-                                <span>{activeMonth}: {monthLessons.filter(l => l.topic?.trim()).length}/4 dars to'ldirilgan</span>
-                                <span>Jami: {formData.lessons.reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0)} soat</span>
+                                <span>{activeMonth}: {monthLessons.filter(l => l.topic?.trim()).length}/{monthLessons.length} dars to'ldirilgan</span>
+                                <div className="flex items-center gap-2">
+                                    <span>Jami: {formData.lessons.reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0)} soat ({formData.lessons.length} dars)</span>
+                                    <button
+                                        onClick={() => addLessonToMonth(activeMonth)}
+                                        className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors text-[11px] font-medium"
+                                    >
+                                        <Plus size={12} /> Dars
+                                    </button>
+                                    {monthLessons.length > 1 && (
+                                        <button
+                                            onClick={() => removeLessonFromMonth(activeMonth)}
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors text-[11px] font-medium"
+                                        >
+                                            <Trash2 size={12} /> Dars
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </motion.div>

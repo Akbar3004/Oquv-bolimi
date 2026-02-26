@@ -26,7 +26,7 @@ function downloadSampleFile() {
         ['Soat', '2', 'Bir dars uchun soat (1, 1.5, 2, 2.5, 3)'],
     ];
 
-    // 2-sheet: Darslar jadvali (48 qator)
+    // 2-sheet: Darslar jadvali (namuna sifatida 48 qator)
     const lessonsData = [['№', 'Oy', 'Texnik mashg\'ulot mavzusi', 'Soat', 'Adabiyotlar']];
     let num = 1;
     for (const month of MONTHS) {
@@ -120,18 +120,15 @@ function parseImportedFile(file) {
                     }
                 }
 
-                // Agar 48 ta dars bo'lmasa, to'ldirish
-                while (lessons.length < 48) {
-                    const idx = lessons.length;
-                    const monthIdx = Math.floor(idx / 4) % 12;
-                    lessons.push({
-                        number: idx + 1,
-                        month: MONTHS[monthIdx],
-                        topic: '',
-                        hours: hourPerLesson,
-                        literature: '',
-                        instructor: '',
-                    });
+                // Agar hech dars bo'lmasa, standart 48 ta dars yaratish
+                if (lessons.length === 0) {
+                    let num = 1;
+                    for (const m of MONTHS) {
+                        for (let w = 0; w < 4; w++) {
+                            lessons.push({ number: num, month: m, topic: '', hours: hourPerLesson, literature: '', instructor: '' });
+                            num++;
+                        }
+                    }
                 }
 
                 // 3-sheet: Imzolar
@@ -154,7 +151,7 @@ function parseImportedFile(file) {
                     ];
                 }
 
-                const totalHours = lessons.slice(0, 48).reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
+                const totalHours = lessons.reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
 
                 const plan = {
                     id: Date.now(),
@@ -168,7 +165,7 @@ function parseImportedFile(file) {
                     totalHours,
                     createdAt: new Date().toISOString().split('T')[0],
                     updatedAt: new Date().toISOString().split('T')[0],
-                    lessons: lessons.slice(0, 48),
+                    lessons: lessons,
                     signatures,
                     titlePage: {
                         kelishildi: { orgLine1: '"O\'zbekiston" lokomotiv', orgLine2: 'deposi boshlig\'i', name: '' },
@@ -206,7 +203,8 @@ export default function AnnualPlanList({ plans, onCreateNew, onView, onEdit, onD
 
     const getCompletionPercent = (plan) => {
         const filled = plan.lessons.filter(l => l.topic && l.topic.trim() !== '').length;
-        return Math.round((filled / 48) * 100);
+        const total = plan.lessons.length || 1;
+        return Math.round((filled / total) * 100);
     };
 
     const handleFileChange = async (e) => {
@@ -226,7 +224,7 @@ export default function AnnualPlanList({ plans, onCreateNew, onView, onEdit, onD
             onImport(plan);
             setImportStatus({
                 type: 'success',
-                message: `"${plan.name}" muvaffaqiyatli import qilindi! (${filledCount}/48 dars, ${plan.workshops.length} ta sex)`
+                message: `"${plan.name}" muvaffaqiyatli import qilindi! (${filledCount}/${plan.lessons.length} dars, ${plan.workshops.length} ta sex)`
             });
         } catch (err) {
             setImportStatus({ type: 'error', message: err.message });
@@ -291,8 +289,8 @@ export default function AnnualPlanList({ plans, onCreateNew, onView, onEdit, onD
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         className={`flex items-center justify-between p-3.5 rounded-xl border text-sm ${importStatus.type === 'success'
-                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                                : 'bg-red-500/10 border-red-500/20 text-red-300'
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                            : 'bg-red-500/10 border-red-500/20 text-red-300'
                             }`}
                     >
                         <div className="flex items-center gap-2">
@@ -424,7 +422,7 @@ export default function AnnualPlanList({ plans, onCreateNew, onView, onEdit, onD
                                         {/* Statistika */}
                                         <div className="flex items-center gap-4 text-[10px] text-[hsl(var(--muted-foreground))]">
                                             <span className="flex items-center gap-1">
-                                                <Calendar size={10} /> {plan.lessons.filter(l => l.topic).length}/48 dars
+                                                <Calendar size={10} /> {plan.lessons.filter(l => l.topic).length}/{plan.lessons.length} dars
                                             </span>
                                             <span className="flex items-center gap-1">
                                                 ⏱️ {plan.totalHours || plan.lessons.length * (plan.hourPerLesson || 2)} soat

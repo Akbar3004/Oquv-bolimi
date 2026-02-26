@@ -189,7 +189,7 @@ export default function AnnualPlanViewer({ plan, onBack, onEdit }) {
                     <div>
                         <h2 className="font-bold text-sm">{plan.name}</h2>
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                            {plan.year}-yil • {plan.workshops.map(w => `Sex ${w}`).join(', ')} • {filledLessons}/48 dars
+                            {plan.year}-yil • {plan.workshops.map(w => `Sex ${w}`).join(', ')} • {filledLessons}/{plan.lessons.length} dars
                         </p>
                     </div>
                 </div>
