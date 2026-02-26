@@ -53,6 +53,29 @@ const SAMPLE_ANNUAL_PLAN = {
     consultant: 'Israilov I.A.',
     totalHours: 96,
     createdAt: '2025-01-15',
+    titlePage: {
+        kelishildi: {
+            orgLine1: '"O\'zbekiston" lokomotiv',
+            orgLine2: 'deposi boshlig\'i',
+            name: 'N.M.Hamdamov',
+        },
+        tasdiqlayman: {
+            orgLine1: '"O\'zbekiston Temir yo\'llari" AJ',
+            orgLine2: 'Lokomotivlardan foydalanish boshqarmasi',
+            orgLine3: 'boshlig\'i',
+            name: 'Sh.T.Tulyaganov',
+        },
+        centerOrg: {
+            line1: '"O\'zbekiston temir yo\'llari" A.J.',
+            line2: '"O\'zbekiston" lokomotiv deposi.',
+        },
+        maslaxatchilar: [
+            { title: '"O\'zbekiston" lokomotiv deposi\nKasaba uyushmasi raisi:', name: 'D.T.Asamidinov' },
+            { title: '"O\'zbekiston" lokomotiv deposi boshlig\'ining\nLokomotivlarni ta\'mirlash ishlari bo\'yicha\no\'rinbosari:', name: 'J.S.Ergashev' },
+            { title: 'Depo bosh texnologi:', name: 'X.N.Minajiddinov' },
+            { title: 'O\'qituvchi:', name: '' },
+        ],
+    },
     lessons: (() => {
         const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
         const topics = [
@@ -303,8 +326,8 @@ export default function Lessons() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 sm:flex-initial justify-center whitespace-nowrap ${isActive
-                                    ? 'text-white shadow-lg'
-                                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))]'
+                                ? 'text-white shadow-lg'
+                                : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))]'
                                 }`}
                         >
                             {isActive && (
