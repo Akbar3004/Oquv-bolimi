@@ -4,8 +4,10 @@ import {
     UserCheck, Clock, Monitor, XCircle, CheckCircle, FileText, Download,
     Play, AlertTriangle, Loader2, Plus, Trash2, Edit3, Search, Save,
     Settings, BookOpen, ClipboardList, Activity, BarChart3, StopCircle,
-    Hash, Award, MapPin, Timer, ChevronDown, ChevronUp, Eye, X, Shuffle
+    Hash, Award, MapPin, Timer, ChevronDown, ChevronUp, Eye, X, Shuffle,
+    Upload, FileDown
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { pdf } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import ExamResultPDF from '../components/ExamResultPDF';
@@ -51,8 +53,8 @@ export default function Exams() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
-                                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
-                                    : 'hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'
+                                ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md'
+                                : 'hover:bg-[hsl(var(--secondary))] text-[hsl(var(--muted-foreground))]'
                                 }`}
                         >
                             {tab.icon} {tab.label}
@@ -187,13 +189,15 @@ function QuestionsTab() {
     );
 }
 
-// === Savollar bazasi modal ===
+// === Savollar bazasi modal (AddWorkshopModal uslubida) ===
 function QuestionBankModal({ bank, onSave, onClose }) {
     const [name, setName] = useState(bank?.name || '');
     const [seh, setSeh] = useState(bank?.seh || 'Barchasi');
     const [lavozim, setLavozim] = useState(bank?.lavozim || 'Barchasi');
     const [razryad, setRazryad] = useState(bank?.razryad || 'Barchasi');
     const [questions, setQuestions] = useState(bank?.questions || [{ question: '', options: ['', '', '', ''], correct: 0 }]);
+    const [importErrors, setImportErrors] = useState([]);
+    const [importSuccess, setImportSuccess] = useState('');
 
     const addQuestion = () => setQuestions([...questions, { question: '', options: ['', '', '', ''], correct: 0 }]);
 
@@ -213,91 +217,218 @@ function QuestionBankModal({ bank, onSave, onClose }) {
         setQuestions(updated);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = (e) => {
+        e?.preventDefault();
         if (!name.trim()) return alert("To'plam nomini kiriting!");
         const validQ = questions.filter(q => q.question.trim() && q.options.every(o => o.trim()));
         if (validQ.length === 0) return alert("Kamida 1 ta to'liq savol kiriting!");
         onSave({ name, seh, lavozim, razryad, questions: validQ });
     };
 
-    const inputCls = "w-full px-3 py-2 bg-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]";
+    // Import qilish
+    const handleImport = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = '';
+        setImportErrors([]);
+        setImportSuccess('');
+
+        try {
+            const result = await examStore.importTestQuestions(file);
+
+            if (result.errors.length > 0) {
+                setImportErrors(result.errors);
+            }
+
+            if (result.questions.length > 0) {
+                // Mavjud bo'sh savolni (faqat bitta bo'sh bo'lsa) olib tashlab, import savollarini qo'shish
+                const hasOnlyEmptyQuestion = questions.length === 1 && !questions[0].question.trim();
+                if (hasOnlyEmptyQuestion) {
+                    setQuestions(result.questions);
+                } else {
+                    setQuestions([...questions, ...result.questions]);
+                }
+                setImportSuccess(`${result.questions.length} ta savol muvaffaqiyatli yuklandi!`);
+                setTimeout(() => setImportSuccess(''), 5000);
+            } else if (result.errors.length === 0) {
+                setImportErrors([{ row: '-', message: 'Faylda hech qanday savol topilmadi' }]);
+            }
+        } catch (err) {
+            console.error('Import xatolik:', err);
+            setImportErrors([{ row: '-', message: 'Fayl formatini tekshiring. Faqat .xlsx yoki .xls fayllarini yuklang.' }]);
+        }
+    };
+
+    // Export
+    const handleExport = () => {
+        const validQ = questions.filter(q => q.question.trim());
+        if (validQ.length === 0) return alert("Export qilish uchun kamida 1 ta savol kerak!");
+        examStore.exportTestQuestions(validQ, name || 'Test_Savollari');
+    };
+
+    const inputCls = "w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all";
     const selectCls = inputCls;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl w-full max-w-2xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--border))]">
-                    <h2 className="text-lg font-bold">{bank ? "Tahrirlash" : "Yangi Test To'plami"}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-[hsl(var(--secondary))] rounded-lg"><X size={20} /></button>
-                </div>
-                <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-                    <div>
-                        <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase mb-1 block">To'plam Nomi</label>
-                        <input value={name} onChange={e => setName(e.target.value)} className={inputCls} placeholder="Masalan: Mashinist asosiy testlari" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase mb-1 block">Seh</label>
-                            <select value={seh} onChange={e => setSeh(e.target.value)} className={selectCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option><option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase mb-1 block">Lavozim</label>
-                            <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={selectCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option>Mashinist</option><option>Elektrik</option><option>Payvandchi</option><option>Kadrlar bo'limi</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase mb-1 block">Razryad</label>
-                            <select value={razryad} onChange={e => setRazryad(e.target.value)} className={selectCls}>
-                                <option value="Barchasi">Barchasi</option>
-                                <option>2-toifa</option><option>3-toifa</option><option>4-toifa</option><option>5-toifa</option>
-                            </select>
-                        </div>
+        <AnimatePresence>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                            {bank ? "Test To'plamini Tahrirlash" : "Yangi Test To'plami"}
+                        </h2>
+                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                            <X size={20} />
+                        </button>
                     </div>
 
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <label className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase">Savollar ({questions.length} ta)</label>
-                            <button onClick={addQuestion} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg">
-                                <Plus size={14} /> Savol Qo'shish
+                    {/* Content */}
+                    <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+                        {/* To'plam nomi */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                To'plam Nomi <span className="text-red-500">*</span>
+                            </label>
+                            <input type="text" value={name} onChange={e => setName(e.target.value)}
+                                className={inputCls} placeholder="Masalan: Mashinist asosiy testlari" />
+                        </div>
+
+                        {/* Seh, Lavozim, Razryad */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seh</label>
+                                <select value={seh} onChange={e => setSeh(e.target.value)} className={selectCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option value="1-Sex">1-Sex</option><option value="2-Sex">2-Sex</option>
+                                    <option value="3-Sex">3-Sex</option><option value="Ofis">Ofis</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lavozim</label>
+                                <select value={lavozim} onChange={e => setLavozim(e.target.value)} className={selectCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option>Mashinist</option><option>Elektrik</option>
+                                    <option>Payvandchi</option><option>Kadrlar bo'limi</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razryad</label>
+                                <select value={razryad} onChange={e => setRazryad(e.target.value)} className={selectCls}>
+                                    <option value="Barchasi">Barchasi</option>
+                                    <option>2-toifa</option><option>3-toifa</option>
+                                    <option>4-toifa</option><option>5-toifa</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Import / Export / Namuna tugmalari */}
+                        <div className="flex flex-wrap gap-2 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <button type="button" onClick={() => examStore.downloadTestTemplate()}
+                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300">
+                                <Download size={16} /> Namuna Yuklab Olish
+                            </button>
+                            <label className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-gray-700 dark:text-gray-300">
+                                <Upload size={16} /> Import (Excel)
+                                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                            </label>
+                            <button type="button" onClick={handleExport}
+                                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-green-300 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/10">
+                                <FileDown size={16} /> Export (Excel)
                             </button>
                         </div>
-                        {questions.map((q, qi) => (
-                            <div key={qi} className="bg-[hsl(var(--secondary)/0.3)] border border-[hsl(var(--border))] rounded-xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-[hsl(var(--primary))]">Savol #{qi + 1}</span>
-                                    {questions.length > 1 && (
-                                        <button onClick={() => removeQuestion(qi)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><Trash2 size={14} /></button>
-                                    )}
-                                </div>
-                                <input value={q.question} onChange={e => updateQuestion(qi, 'question', e.target.value)}
-                                    className={inputCls} placeholder="Savol matnini kiriting..." />
-                                <div className="grid grid-cols-2 gap-2">
-                                    {q.options.map((opt, oi) => (
-                                        <div key={oi} className="flex items-center gap-2">
-                                            <input type="radio" name={`correct_${qi}`} checked={q.correct === oi}
-                                                onChange={() => updateQuestion(qi, 'correct', oi)} className="accent-green-500" />
-                                            <input value={opt} onChange={e => updateQuestion(qi, `option_${oi}`, e.target.value)}
-                                                className={`${inputCls} flex-1`} placeholder={`${String.fromCharCode(65 + oi)} variant`} />
-                                        </div>
-                                    ))}
-                                </div>
+
+                        {/* Import xatoliklari */}
+                        <AnimatePresence>
+                            {importErrors.length > 0 && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                    className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
+                                            <AlertTriangle size={16} /> Import Xatoliklari ({importErrors.length})
+                                        </h4>
+                                        <button type="button" onClick={() => setImportErrors([])} className="text-red-400 hover:text-red-600 p-1 rounded">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                        {importErrors.map((err, i) => (
+                                            <p key={i} className="text-xs text-red-600 dark:text-red-400">
+                                                <strong>Qator {err.row}:</strong> {err.message}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Import muvaffaqiyat */}
+                        <AnimatePresence>
+                            {importSuccess && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                    className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-400 text-sm">
+                                    <CheckCircle size={16} /> {importSuccess}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Savollar ro'yxati */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Savollar <span className="text-gray-400">({questions.length} ta)</span>
+                                </label>
+                                <button type="button" onClick={addQuestion}
+                                    className="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm">
+                                    <Plus size={14} /> Savol Qo'shish
+                                </button>
                             </div>
-                        ))}
+                            {questions.map((q, qi) => (
+                                <div key={qi} className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Savol #{qi + 1}</span>
+                                        {questions.length > 1 && (
+                                            <button type="button" onClick={() => removeQuestion(qi)}
+                                                className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"><Trash2 size={14} /></button>
+                                        )}
+                                    </div>
+                                    <input value={q.question} onChange={e => updateQuestion(qi, 'question', e.target.value)}
+                                        className={inputCls} placeholder="Savol matnini kiriting..." />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {q.options.map((opt, oi) => (
+                                            <div key={oi} className="flex items-center gap-2">
+                                                <input type="radio" name={`correct_${qi}`} checked={q.correct === oi}
+                                                    onChange={() => updateQuestion(qi, 'correct', oi)} className="accent-green-500 w-4 h-4" />
+                                                <input value={opt} onChange={e => updateQuestion(qi, `option_${oi}`, e.target.value)}
+                                                    className={`${inputCls} flex-1`} placeholder={`${String.fromCharCode(65 + oi)} variant`} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </form>
+
+                    {/* Footer */}
+                    <div className="flex justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700 shrink-0">
+                        <button type="button" onClick={onClose}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                            Bekor qilish
+                        </button>
+                        <button type="button" onClick={handleSubmit}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all hover:shadow-md">
+                            <Save size={18} /> Saqlash
+                        </button>
                     </div>
-                </div>
-                <div className="flex justify-end gap-3 p-5 border-t border-[hsl(var(--border))]">
-                    <button onClick={onClose} className="px-4 py-2 border border-[hsl(var(--border))] rounded-lg hover:bg-[hsl(var(--secondary))] transition-colors">Bekor qilish</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:opacity-90 flex items-center gap-2">
-                        <Save size={16} /> Saqlash
-                    </button>
-                </div>
+                </motion.div>
             </div>
-        </div>
+        </AnimatePresence>
     );
 }
 

@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 /**
  * Imtihon tizimi uchun markaziy ma'lumotlar do'koni
  * - Savollar bazasi (seh, lavozim, razryad bo'yicha)
@@ -228,6 +230,133 @@ function shuffleArray(arr) {
     return a;
 }
 
+// === TEST IMPORT / EXPORT / NAMUNA ===
+
+/**
+ * Test savollarini Excel namuna faylini yuklab olish
+ */
+function downloadTestTemplate() {
+    const headers = [
+        ['Savol matni', 'A variant', 'B variant', 'C variant', 'D variant', "To'g'ri javob (A/B/C/D)"],
+        ['Lokomotivning asosiy vazifasi nima?', "Yo'lovchilarni tashish", 'Vagonlarni tortish', "Temiryo'l ta'mirlash", 'Signal berish', 'B'],
+        ["Qizil signal nimani bildiradi?", 'Harakatga ruxsat', 'Ehtiyotkorlik', "To'liq to'xtash", 'Sekinlashtirish', 'C'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    // Ustun kengliklarini belgilash
+    ws['!cols'] = [
+        { wch: 40 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 20 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
+    XLSX.writeFile(wb, 'Test_Savollari_Namuna.xlsx');
+}
+
+/**
+ * Test savollarini Excel faylidan import qilish (validatsiya bilan)
+ * @param {File} file
+ * @returns {Promise<{questions: Array, errors: Array}>}
+ */
+function importTestQuestions(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                // Birinchi qatorni o'tkazib yuborish (sarlavha)
+                const dataRows = rows.slice(1).filter(row => row.length > 0 && row[0]);
+
+                if (dataRows.length === 0) {
+                    resolve({ questions: [], errors: [{ row: '-', message: "Faylda savollar topilmadi" }] });
+                    return;
+                }
+
+                const questions = [];
+                const errors = [];
+                const VALID_ANSWERS = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+
+                dataRows.forEach((row, idx) => {
+                    const rowNum = idx + 2; // Excel da 2-qatordan boshlanadi
+                    const questionText = row[0]?.toString().trim();
+                    const optA = row[1]?.toString().trim();
+                    const optB = row[2]?.toString().trim();
+                    const optC = row[3]?.toString().trim();
+                    const optD = row[4]?.toString().trim();
+                    const correctRaw = row[5]?.toString().trim().toUpperCase();
+
+                    // Validatsiyalar
+                    if (!questionText) {
+                        errors.push({ row: rowNum, message: "Savol matni bo'sh" });
+                        return;
+                    }
+                    if (!optA) {
+                        errors.push({ row: rowNum, message: "A variant bo'sh" });
+                        return;
+                    }
+                    if (!optB) {
+                        errors.push({ row: rowNum, message: "B variant bo'sh" });
+                        return;
+                    }
+                    if (!optC) {
+                        errors.push({ row: rowNum, message: "C variant bo'sh" });
+                        return;
+                    }
+                    if (!optD) {
+                        errors.push({ row: rowNum, message: "D variant bo'sh" });
+                        return;
+                    }
+                    if (!correctRaw || !VALID_ANSWERS.hasOwnProperty(correctRaw)) {
+                        errors.push({ row: rowNum, message: `To'g'ri javob noto'g'ri: "${correctRaw || 'bo\'sh'}". Faqat A, B, C, D bo'lishi kerak` });
+                        return;
+                    }
+
+                    questions.push({
+                        question: questionText,
+                        options: [optA, optB, optC, optD],
+                        correct: VALID_ANSWERS[correctRaw],
+                    });
+                });
+
+                resolve({ questions, errors });
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/**
+ * Test savollarini Excel fayliga export qilish
+ * @param {Array} questions - [{question, options:[], correct}]
+ * @param {string} bankName
+ */
+function exportTestQuestions(questions, bankName) {
+    const ANSWER_LETTERS = ['A', 'B', 'C', 'D'];
+    const data = [
+        ['Savol matni', 'A variant', 'B variant', 'C variant', 'D variant', "To'g'ri javob (A/B/C/D)"],
+        ...questions.map(q => [
+            q.question,
+            q.options[0] || '',
+            q.options[1] || '',
+            q.options[2] || '',
+            q.options[3] || '',
+            ANSWER_LETTERS[q.correct] || 'A',
+        ])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+        { wch: 40 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 20 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Test Savollari');
+    XLSX.writeFile(wb, `${bankName.replace(/\s+/g, '_')}_Savollar.xlsx`);
+}
+
 // Jami eksport
 export const examStore = {
     // Savollar bazasi
@@ -253,4 +382,9 @@ export const examStore = {
     getSettings,
     saveSettings,
     DEFAULT_SETTINGS,
+
+    // Test import/export
+    downloadTestTemplate,
+    importTestQuestions,
+    exportTestQuestions,
 };
