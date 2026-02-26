@@ -1,178 +1,207 @@
 import {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
     WidthType, AlignmentType, BorderStyle, PageOrientation, VerticalAlign,
-    HeadingLevel, TabStopPosition, TabStopType, ShadingType
+    ShadingType, convertMillimetersToTwip
 } from 'docx';
 import { saveAs } from 'file-saver';
 
 const MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
-
 const FONT = 'Times New Roman';
+
+// ===== Yordamchi funksiyalar =====
 const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: '000000' };
-const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+const solidBorder = { style: BorderStyle.SINGLE, size: 1, color: '000000' };
 const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+const allBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
 
-function txt(text, options = {}) {
+// Matn yaratish
+function t(text, opts = {}) {
     return new TextRun({
-        text,
+        text: text || '',
         font: FONT,
-        size: options.size || 22, // 11pt = 22 half-points
-        bold: options.bold || false,
-        underline: options.underline ? {} : undefined,
-        italics: options.italics || false,
+        size: opts.size || 22,
+        bold: opts.bold || false,
+        underline: opts.underline ? {} : undefined,
+        italics: opts.italics || false,
     });
 }
 
-function para(texts, options = {}) {
-    const runs = Array.isArray(texts) ? texts : [txt(texts, options)];
+// Paragraf yaratish
+function p(content, opts = {}) {
+    const children = typeof content === 'string' ? [t(content, opts)] : content;
     return new Paragraph({
-        children: runs,
-        alignment: options.alignment || AlignmentType.LEFT,
-        spacing: { after: options.spacingAfter ?? 40, before: options.spacingBefore ?? 0 },
+        children,
+        alignment: opts.align || AlignmentType.LEFT,
+        spacing: { after: opts.after ?? 40, before: opts.before ?? 0 },
+        indent: opts.indent ? { left: opts.indent } : undefined,
     });
 }
 
-// Titil sahifasi
-function buildTitlePageContent(plan) {
+// Bo'sh qator
+function emptyLine(after = 120) {
+    return p('', { after });
+}
+
+// Chegarasiz katak
+function noBorderCell(children, opts = {}) {
+    return new TableCell({
+        children: Array.isArray(children) ? children : [children],
+        borders: noBorders,
+        width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+        verticalAlign: opts.vAlign || VerticalAlign.TOP,
+    });
+}
+
+// Chegarali katak
+function borderedCell(children, opts = {}) {
+    return new TableCell({
+        children: Array.isArray(children) ? children : [children],
+        borders: allBorders,
+        width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+        verticalAlign: opts.vAlign || VerticalAlign.CENTER,
+        rowSpan: opts.rowSpan || 1,
+        shading: opts.shading ? { fill: opts.shading, type: ShadingType.CLEAR } : undefined,
+    });
+}
+
+export async function exportPlanToDocx(plan) {
     const tp = plan.titlePage || {};
     const k = tp.kelishildi || {};
-    const t = tp.tasdiqlayman || {};
+    const ta = tp.tasdiqlayman || {};
     const c = tp.centerOrg || {};
     const maslaxatchilar = tp.maslaxatchilar || [];
     const year = plan.year || 2025;
-    const children = [];
-
-    // KELISHILDI va TASDIQLAYMAN — jadval bilan yonma-yon joylash
-    const headerTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: noBorders,
-        rows: [
-            new TableRow({
-                children: [
-                    new TableCell({
-                        width: { size: 45, type: WidthType.PERCENTAGE },
-                        borders: noBorders,
-                        children: [
-                            para([txt('KELISHILDI :', { bold: true })]),
-                            para(k.orgLine1 || ''),
-                            para(k.orgLine2 || ''),
-                            para(`${k.name || '___'} _______________`),
-                            para(`" _______ " _____________ ${year}y`),
-                        ],
-                    }),
-                    new TableCell({
-                        width: { size: 10, type: WidthType.PERCENTAGE },
-                        borders: noBorders,
-                        children: [para('')],
-                    }),
-                    new TableCell({
-                        width: { size: 45, type: WidthType.PERCENTAGE },
-                        borders: noBorders,
-                        children: [
-                            para([txt('TASDIQLAYMAN:', { bold: true })], { alignment: AlignmentType.RIGHT }),
-                            para(t.orgLine1 || '', { alignment: AlignmentType.RIGHT }),
-                            para(t.orgLine2 || '', { alignment: AlignmentType.RIGHT }),
-                            para(t.orgLine3 || '', { alignment: AlignmentType.RIGHT }),
-                            para([txt(t.name || '___', { underline: true })], { alignment: AlignmentType.RIGHT }),
-                            para(`" _______ " _____________ ${year}y`, { alignment: AlignmentType.RIGHT }),
-                        ],
-                    }),
-                ],
-            }),
-        ],
-    });
-    children.push(headerTable);
-
-    // Bo'sh joy
-    children.push(para('', { spacingAfter: 200 }));
-
-    // Markaziy tashkilot
-    children.push(para(c.line1 || '', { alignment: AlignmentType.CENTER }));
-    children.push(para([txt(c.line2 || '', { underline: true })], { alignment: AlignmentType.CENTER, spacingAfter: 200 }));
-
-    // Sarlavha
-    children.push(para([txt(`${year} yil uchun tuzilgan choraklarga bo'lingan`, { bold: true })], { alignment: AlignmentType.CENTER }));
-    children.push(para([txt("Yillik texnik o'quv mashg'ulotlar mavzulari rejasi", { bold: true })], { alignment: AlignmentType.CENTER, spacingAfter: 200 }));
-
-    // Yo'nalish va Sexlar
-    children.push(para([txt(`Yo'nalish: ${plan.direction || ''}`, { bold: true })], { alignment: AlignmentType.CENTER }));
-    const sexText = plan.workshops && plan.workshops.length > 0
-        ? `Sex № ${plan.workshops.join(', №')}.`
-        : 'Sex №';
-    children.push(para([txt(sexText, { bold: true })], { alignment: AlignmentType.CENTER, spacingAfter: 200 }));
-
-    // Maslaxatchilar
-    children.push(para([txt('Maslaxatchilar:', { bold: true })], { spacingAfter: 100 }));
-
-    maslaxatchilar.forEach(m => {
-        const titleLines = (m.title || '').split('\n');
-        // Jadval — lavozim chap, ism o'ng
-        const consultantRow = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: noBorders,
-            rows: [
-                new TableRow({
-                    children: [
-                        new TableCell({
-                            width: { size: 55, type: WidthType.PERCENTAGE },
-                            borders: noBorders,
-                            children: titleLines.map(line => para(line, { spacingAfter: 0 })),
-                        }),
-                        new TableCell({
-                            width: { size: 45, type: WidthType.PERCENTAGE },
-                            borders: noBorders,
-                            verticalAlign: VerticalAlign.BOTTOM,
-                            children: [
-                                para(`${m.name || '_______________'}    _______________`, { alignment: AlignmentType.RIGHT }),
-                            ],
-                        }),
-                    ],
-                }),
-            ],
-        });
-        children.push(consultantRow);
-        children.push(para('', { spacingAfter: 60 }));
-    });
-
-    // Pastdi tashkilot nomi
-    children.push(para('', { spacingAfter: 200 }));
-    const orgName = (c.line2 || '').replace(/"/g, '').replace(/\./g, '');
-    children.push(para([txt(`\u201E${orgName}\u201C`, { italics: true })], { alignment: AlignmentType.CENTER }));
-
-    return children;
-}
-
-// Darslar jadvali
-function buildLessonsTableContent(plan) {
-    const children = [];
-    const signatures = plan.signatures || [
+    const sigs = plan.signatures || [
         { title: 'Tuzuvchi:', name: plan.author || '' },
         { title: 'Konsultant:', name: plan.consultant || '' },
     ];
 
-    children.push(para([txt(`Yo'nalish: ${plan.direction || ''}`, { bold: true })], { alignment: AlignmentType.CENTER, spacingAfter: 100 }));
+    // A4 landscape = 297mm x 210mm
+    // Marginal: chap/o'ng 15mm, yuqori/pastki 10mm
+    // Foydalanish mumkin bo'lgan kenglik ≈ 297 - 30 = 267mm ≈ 15120 twips
+    const pageW = convertMillimetersToTwip(297);
+    const pageH = convertMillimetersToTwip(210);
+    const marginLR = convertMillimetersToTwip(15);
+    const marginTB = convertMillimetersToTwip(10);
+    const usableWidth = pageW - marginLR * 2; // ~15120
 
-    // Oylar bo'yicha darslarni guruhlash
+    const halfWidth = Math.floor(usableWidth / 2);
+
+    // ==========================================
+    // 1-SAHIFA: TITIL
+    // ==========================================
+    const titleChildren = [];
+
+    // --- KELISHILDI / TASDIQLAYMAN ---
+    titleChildren.push(new Table({
+        width: { size: usableWidth, type: WidthType.DXA },
+        rows: [
+            new TableRow({
+                children: [
+                    noBorderCell([
+                        p([t('KELISHILDI :', { bold: true })]),
+                        p(k.orgLine1 || '"O\'zbekiston" lokomotiv'),
+                        p(k.orgLine2 || 'deposi boshlig\'i'),
+                        p(`${k.name || 'N.M.Hamdamov'} _______________`),
+                        p(`" _______ " _____________ ${year}y`),
+                    ], { width: halfWidth }),
+                    noBorderCell([
+                        p([t('TASDIQLAYMAN:', { bold: true })], { align: AlignmentType.RIGHT }),
+                        p(ta.orgLine1 || '"O\'zbekiston Temir yo\'llari" AJ', { align: AlignmentType.RIGHT }),
+                        p(ta.orgLine2 || 'Lokomotivlardan foydalanish boshqarmasi', { align: AlignmentType.RIGHT }),
+                        p(ta.orgLine3 || 'boshlig\'i', { align: AlignmentType.RIGHT }),
+                        p([t(ta.name || 'Sh.T.Tulyaganov', { underline: true })], { align: AlignmentType.RIGHT }),
+                        p(`" _______ " _____________ ${year}y`, { align: AlignmentType.RIGHT }),
+                    ], { width: halfWidth }),
+                ],
+            }),
+        ],
+    }));
+
+    titleChildren.push(emptyLine(300));
+
+    // --- Markaziy tashkilot ---
+    titleChildren.push(p(c.line1 || '"O\'zbekiston temir yo\'llari" A.J.', { align: AlignmentType.CENTER }));
+    titleChildren.push(p([t(c.line2 || '"O\'zbekiston" lokomotiv deposi.', { underline: true })], { align: AlignmentType.CENTER, after: 300 }));
+
+    // --- Sarlavha ---
+    titleChildren.push(p([t(`${year} yil uchun tuzilgan choraklarga bo'lingan`, { bold: true })], { align: AlignmentType.CENTER }));
+    titleChildren.push(p([t("Yillik texnik o'quv mashg'ulotlar mavzulari rejasi", { bold: true })], { align: AlignmentType.CENTER, after: 300 }));
+
+    // --- Yo'nalish va Sexlar ---
+    titleChildren.push(p([t(`Yo'nalish: ${plan.direction || ''}`, { bold: true })], { align: AlignmentType.CENTER }));
+    const sexList = (plan.workshops || []).length > 0
+        ? `Sex № ${plan.workshops.join(', №')}.`
+        : '';
+    if (sexList) {
+        titleChildren.push(p([t(sexList, { bold: true })], { align: AlignmentType.CENTER, after: 300 }));
+    }
+
+    // --- Maslaxatchilar ---
+    titleChildren.push(emptyLine(100));
+    titleChildren.push(p([t('Maslaxatchilar:', { bold: true })]));
+    titleChildren.push(emptyLine(60));
+
+    for (const m of maslaxatchilar) {
+        const lines = (m.title || '').split('\n');
+        const titleParas = lines.map(line => p(line, { after: 0 }));
+        const nameText = `${m.name || '_______________'}    _______________`;
+
+        titleChildren.push(new Table({
+            width: { size: usableWidth, type: WidthType.DXA },
+            rows: [
+                new TableRow({
+                    children: [
+                        noBorderCell(titleParas, { width: Math.floor(usableWidth * 0.55) }),
+                        noBorderCell([
+                            p(nameText, { align: AlignmentType.RIGHT }),
+                        ], { width: Math.floor(usableWidth * 0.45), vAlign: VerticalAlign.BOTTOM }),
+                    ],
+                }),
+            ],
+        }));
+        titleChildren.push(emptyLine(80));
+    }
+
+    // --- Pastki tashkilot ---
+    titleChildren.push(emptyLine(200));
+    const orgClean = (c.line2 || '').replace(/"/g, '').replace(/\./g, '');
+    titleChildren.push(p([t(`\u201E${orgClean}\u201C`, { italics: true })], { align: AlignmentType.CENTER }));
+
+    // ==========================================
+    // 2-SAHIFA: DARSLAR JADVALI
+    // ==========================================
+    const lessonsChildren = [];
+
+    lessonsChildren.push(p([t(`Yo'nalish: ${plan.direction || ''}`, { bold: true })], { align: AlignmentType.CENTER, after: 120 }));
+
+    // Darslarni oylar bo'yicha guruhlash
     const lessonsByMonth = {};
     MONTHS.forEach(m => { lessonsByMonth[m] = []; });
-    plan.lessons.forEach(l => {
+    (plan.lessons || []).forEach(l => {
         if (lessonsByMonth[l.month]) lessonsByMonth[l.month].push(l);
     });
 
-    // Jadval sarlavha qatori
-    const headerCells = ['№', 'Oylar', "Texnik mashg'ulot mavzusi", 'Soat', 'Adabiyotlar', 'Darslar'];
-    const colWidths = [500, 900, 5000, 600, 2000, 900];
+    // Ustun kengliklari (jami ≈ usableWidth)
+    const cNum = Math.floor(usableWidth * 0.035);    // №
+    const cMonth = Math.floor(usableWidth * 0.065);   // Oylar
+    const cTopic = Math.floor(usableWidth * 0.50);    // Mavzu
+    const cHour = Math.floor(usableWidth * 0.05);     // Soat
+    const cLit = Math.floor(usableWidth * 0.27);      // Adabiyotlar
+    const cLesson = Math.floor(usableWidth * 0.08);   // Darslar
+
+    // Jadval sarlavhasi
+    const headerTexts = ['№', 'Oylar', "Texnik mashg'ulot mavzusi", 'Soat', 'Adabiyotlar', 'Darslar'];
+    const colWidths = [cNum, cMonth, cTopic, cHour, cLit, cLesson];
 
     const headerRow = new TableRow({
         tableHeader: true,
-        children: headerCells.map((text, i) => new TableCell({
-            width: { size: colWidths[i], type: WidthType.DXA },
-            borders: allBorders,
-            shading: { fill: 'E8E8E8', type: ShadingType.CLEAR },
-            verticalAlign: VerticalAlign.CENTER,
-            children: [para([txt(text, { bold: true, size: 18 })], { alignment: AlignmentType.CENTER, spacingAfter: 0 })],
-        })),
+        children: headerTexts.map((text, i) =>
+            borderedCell(
+                p([t(text, { bold: true, size: 17 })], { align: AlignmentType.CENTER, after: 0 }),
+                { width: colWidths[i], shading: 'E0E0E0' }
+            )
+        ),
     });
 
     const dataRows = [headerRow];
@@ -180,136 +209,93 @@ function buildLessonsTableContent(plan) {
     MONTHS.forEach(month => {
         const ml = lessonsByMonth[month] || [];
         ml.forEach((lesson, i) => {
-            const cumHours = plan.lessons
-                .slice(0, plan.lessons.indexOf(lesson) + 1)
+            const idx = (plan.lessons || []).indexOf(lesson);
+            const cumHours = (plan.lessons || [])
+                .slice(0, idx + 1)
                 .reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
 
             const cells = [];
-            // № ustuni
-            cells.push(new TableCell({
-                width: { size: colWidths[0], type: WidthType.DXA },
-                borders: allBorders,
-                verticalAlign: VerticalAlign.CENTER,
-                children: [para([txt(`${lesson.number}`, { size: 18 })], { alignment: AlignmentType.CENTER, spacingAfter: 0 })],
-            }));
 
-            // Oy ustuni (faqat birinchi darsda)
+            // №
+            cells.push(borderedCell(
+                p([t(`${lesson.number}`, { size: 17 })], { align: AlignmentType.CENTER, after: 0 }),
+                { width: colWidths[0] }
+            ));
+
+            // Oy (faqat birinchida, rowSpan)
             if (i === 0) {
-                cells.push(new TableCell({
-                    width: { size: colWidths[1], type: WidthType.DXA },
-                    borders: allBorders,
-                    rowSpan: ml.length,
-                    verticalAlign: VerticalAlign.CENTER,
-                    children: [para([txt(month, { bold: true, size: 18 })], { alignment: AlignmentType.CENTER, spacingAfter: 0 })],
-                }));
+                cells.push(borderedCell(
+                    p([t(month, { bold: true, size: 17 })], { align: AlignmentType.CENTER, after: 0 }),
+                    { width: colWidths[1], rowSpan: ml.length }
+                ));
             }
 
             // Mavzu
-            cells.push(new TableCell({
-                width: { size: colWidths[2], type: WidthType.DXA },
-                borders: allBorders,
-                children: [para([txt(lesson.topic || '\u2014', { size: 18 })], { spacingAfter: 0 })],
-            }));
+            cells.push(borderedCell(
+                p([t(lesson.topic || '\u2014', { size: 17 })], { after: 0 }),
+                { width: colWidths[2] }
+            ));
 
             // Soat
-            cells.push(new TableCell({
-                width: { size: colWidths[3], type: WidthType.DXA },
-                borders: allBorders,
-                verticalAlign: VerticalAlign.CENTER,
-                children: [para([txt(`${lesson.hours}/${cumHours}`, { size: 16 })], { alignment: AlignmentType.CENTER, spacingAfter: 0 })],
-            }));
+            cells.push(borderedCell(
+                p([t(`${lesson.hours}/${cumHours}`, { size: 15 })], { align: AlignmentType.CENTER, after: 0 }),
+                { width: colWidths[3] }
+            ));
 
             // Adabiyotlar
-            cells.push(new TableCell({
-                width: { size: colWidths[4], type: WidthType.DXA },
-                borders: allBorders,
-                children: [para([txt(lesson.literature || '', { size: 16 })], { spacingAfter: 0 })],
-            }));
+            cells.push(borderedCell(
+                p([t(lesson.literature || '', { size: 15 })], { after: 0 }),
+                { width: colWidths[4] }
+            ));
 
-            // Dars
-            cells.push(new TableCell({
-                width: { size: colWidths[5], type: WidthType.DXA },
-                borders: allBorders,
-                verticalAlign: VerticalAlign.CENTER,
-                children: [para([txt(`Dars №${lesson.number}`, { size: 16 })], { alignment: AlignmentType.CENTER, spacingAfter: 0 })],
-            }));
+            // Dars №
+            cells.push(borderedCell(
+                p([t(`Dars №${lesson.number}`, { size: 15 })], { align: AlignmentType.CENTER, after: 0 }),
+                { width: colWidths[5] }
+            ));
 
             dataRows.push(new TableRow({ children: cells }));
         });
     });
 
-    const table = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+    lessonsChildren.push(new Table({
+        width: { size: usableWidth, type: WidthType.DXA },
         rows: dataRows,
-    });
-    children.push(table);
+    }));
 
     // Jami
-    const totalHours = plan.lessons.reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
-    children.push(para('', { spacingAfter: 60 }));
-    children.push(para([txt(`Jami: ${totalHours} soat`, { bold: true })], { alignment: AlignmentType.RIGHT, spacingAfter: 300 }));
+    const totalHours = (plan.lessons || []).reduce((sum, l) => sum + (parseFloat(l.hours) || 0), 0);
+    lessonsChildren.push(emptyLine(60));
+    lessonsChildren.push(p([t(`Jami: ${totalHours} soat`, { bold: true })], { align: AlignmentType.RIGHT, after: 300 }));
 
     // Imzolar
-    const sigTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: noBorders,
-        rows: signatures.map(sig => new TableRow({
-            children: [
-                new TableCell({
-                    width: { size: 35, type: WidthType.PERCENTAGE },
-                    borders: noBorders,
-                    children: [para([txt(sig.title, { bold: true })])],
-                }),
-                new TableCell({
-                    width: { size: 30, type: WidthType.PERCENTAGE },
-                    borders: noBorders,
-                    children: [para('_______________', { alignment: AlignmentType.CENTER })],
-                }),
-                new TableCell({
-                    width: { size: 35, type: WidthType.PERCENTAGE },
-                    borders: noBorders,
-                    children: [para(sig.name || '')],
-                }),
-            ],
-        })),
-    });
-    children.push(sigTable);
+    const sigRows = sigs.map(sig => new TableRow({
+        children: [
+            noBorderCell(p([t(sig.title, { bold: true })], { after: 0 }), { width: Math.floor(usableWidth * 0.3) }),
+            noBorderCell(p('_______________', { align: AlignmentType.CENTER, after: 0 }), { width: Math.floor(usableWidth * 0.25) }),
+            noBorderCell(p(sig.name || '', { after: 0 }), { width: Math.floor(usableWidth * 0.2) }),
+            noBorderCell(p('', { after: 0 }), { width: Math.floor(usableWidth * 0.25) }),
+        ],
+    }));
+    lessonsChildren.push(new Table({
+        width: { size: usableWidth, type: WidthType.DXA },
+        rows: sigRows,
+    }));
 
-    return children;
-}
-
-export async function exportPlanToDocx(plan) {
-    const titleContent = buildTitlePageContent(plan);
-    const lessonsContent = buildLessonsTableContent(plan);
+    // ==========================================
+    // HUJJAT YARATISH
+    // ==========================================
+    const pageProps = {
+        page: {
+            size: { width: pageW, height: pageH, orientation: PageOrientation.LANDSCAPE },
+            margin: { top: marginTB, bottom: marginTB, left: marginLR, right: marginLR },
+        },
+    };
 
     const doc = new Document({
         sections: [
-            {
-                properties: {
-                    page: {
-                        size: {
-                            orientation: PageOrientation.LANDSCAPE,
-                            width: 16838, // A4 landscape
-                            height: 11906,
-                        },
-                        margin: { top: 567, bottom: 567, left: 680, right: 680 }, // ~10mm
-                    },
-                },
-                children: titleContent,
-            },
-            {
-                properties: {
-                    page: {
-                        size: {
-                            orientation: PageOrientation.LANDSCAPE,
-                            width: 16838,
-                            height: 11906,
-                        },
-                        margin: { top: 567, bottom: 567, left: 680, right: 680 },
-                    },
-                },
-                children: lessonsContent,
-            },
+            { properties: pageProps, children: titleChildren },
+            { properties: pageProps, children: lessonsChildren },
         ],
     });
 
