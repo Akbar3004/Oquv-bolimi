@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import {
     UserCheck, Clock, Monitor, XCircle, CheckCircle, FileText, Download,
     Play, AlertTriangle, Loader2, Plus, Trash2, Edit3, Search, Save,
@@ -299,7 +300,7 @@ function QuestionBankModal({ bank, onSave, onClose }) {
 
     const inputCls = "w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all";
 
-    return (
+    return ReactDOM.createPortal(
         <AnimatePresence>
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" onClick={onClose}>
                 <motion.div
@@ -371,7 +372,8 @@ function QuestionBankModal({ bank, onSave, onClose }) {
                     </form>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }
 
